@@ -7,9 +7,9 @@ import (
 )
 
 type Config struct {
-	PublicHost  string
 	Port        string
 	Environment string
+	DatabaseURL string
 	// DBUser                 string
 	// DBPassword             string
 	// DBAddress              string
@@ -24,9 +24,9 @@ func initConfig() Config {
 	godotenv.Load()
 
 	return Config{
-		PublicHost:  getEnv("PUBLIC_HOST", "http://localhost"),
 		Port:        getEnv("PORT", "8080"),
 		Environment: getEnv("ENV", "development"),
+		DatabaseURL: getEnv("DATABASE_URL", "postgresql://user:password@localhost:5432/postgres?sslmode=disable"),
 		// DBUser:                 getEnv("DB_USER", "admin"),
 		// DBPassword:             getEnv("DB_PASSWORD", "password"),
 		// DBAddress:              fmt.Sprintf("%s:%s", getEnv("DB_HOST", "127.0.0.1"), getEnv("DB_PORT", "3306")),
