@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+
 	"github.com/hoyci/book-store-api/config"
 	"github.com/hoyci/book-store-api/types"
 )
@@ -15,8 +17,8 @@ func NewHealthcheckService(cfg config.Config) *HealthcheckService {
 	}
 }
 
-func (s *HealthcheckService) CheckHealth() types.HealthCheckResponse {
-	return types.HealthCheckResponse{
+func (s *HealthcheckService) HandleHealthcheck(ctx context.Context) *types.HealthcheckResponse {
+	return &types.HealthcheckResponse{
 		Status: "available",
 		SystemInfo: map[string]string{
 			"environment": s.Config.Environment,
