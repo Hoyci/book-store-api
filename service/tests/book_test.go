@@ -16,9 +16,9 @@ type MockBookRepository struct {
 	mock.Mock
 }
 
-func (m *MockBookRepository) Create(ctx context.Context, book types.CreateBookPayload) (int64, error) {
+func (m *MockBookRepository) Create(ctx context.Context, book types.CreateBookPayload) (int, error) {
 	args := m.Called(ctx, book)
-	return args.Get(0).(int64), args.Error(1)
+	return args.Get(0).(int), args.Error(1)
 }
 
 func (m *MockBookRepository) GetByID(ctx context.Context, id int) (*types.Book, error) {
@@ -26,9 +26,14 @@ func (m *MockBookRepository) GetByID(ctx context.Context, id int) (*types.Book, 
 	return args.Get(0).(*types.Book), args.Error(1)
 }
 
-func (m *MockBookRepository) DeleteByID(ctx context.Context, id int) error {
+func (m *MockBookRepository) UpdateByID(ctx context.Context, id int, newBook types.UpdateBookPayload) (*types.Book, error) {
 	args := m.Called(ctx, id)
-	return args.Error(0)
+	return args.Get(0).(*types.Book), args.Error(1)
+}
+
+func (m *MockBookRepository) DeleteByID(ctx context.Context, id int) (int, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(int), args.Error(0)
 }
 
 func TestCreate(t *testing.T) {
@@ -46,22 +51,22 @@ func TestCreate(t *testing.T) {
 	}
 
 	t.Run("successful book creation", func(t *testing.T) {
-		mockRepo.On("Create", mock.Anything, payload).Once().Return(int64(1), nil)
+		mockRepo.On("Create", mock.Anything, payload).Once().Return(1, nil)
 
 		id, err := bookService.Create(context.Background(), payload)
 
 		assert.NoError(t, err)
-		assert.Equal(t, int64(1), id)
+		assert.Equal(t, 1, id)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("repository error during creation", func(t *testing.T) {
-		mockRepo.On("Create", mock.Anything, payload).Once().Return(int64(0), errors.New("repository error"))
+		mockRepo.On("Create", mock.Anything, payload).Once().Return(0, errors.New("repository error"))
 
 		id, err := bookService.Create(context.Background(), payload)
 
 		assert.Error(t, err)
-		assert.Equal(t, int64(0), id)
+		assert.Equal(t, 0, id)
 		mockRepo.AssertExpectations(t)
 	})
 }
@@ -113,6 +118,44 @@ func TestGetByID(t *testing.T) {
 	})
 }
 
+// func UpdateGetByID(t *testing.T) {
+// 	mockRepo := new(MockBookRepository)
+// 	bookService := service.NewBookService(mockRepo)
+
+// 	book := &types.UpdateBookPayload{
+// 		Name:          "Test Book",
+// 		Description:   nil,
+// 		Author:        "John Doe",
+// 		Genres:        []string{"Fiction"},
+// 		ReleaseYear:   2024,
+// 		NumberOfPages: 300,
+// 		ImageUrl:      nil,
+// 	}
+
+// 	expectedBook := &types.Book{
+// 		ID:            1,
+// 		Name:          "Test Book",
+// 		Description:   "A great book",
+// 		Author:        "John Doe",
+// 		Genres:        []string{"Fiction"},
+// 		ReleaseYear:   2024,
+// 		NumberOfPages: 300,
+// 		ImageUrl:      "http://example.com/book.jpg",
+// 		CreatedAt:     time.Now(),
+// 		UpdatedAt:     time.Now(),
+// 	}
+
+// 	t.Run("successful book retrieval", func(t *testing.T) {
+// 		mockRepo.On("UpdateByID", mock.Anything, 1, book).Once().Return(expectedBook, nil)
+
+// 		book, err := bookService.UpdateByID(context.Background(), 1, book)
+
+// 		assert.NoError(t, err)
+// 		assert.Equal(t, expectedBook, book)
+// 		mockRepo.AssertExpectations(t)
+// 	})
+// }
+
 func TestDeleteByID(t *testing.T) {
 	mockRepo := new(MockBookRepository)
 	bookService := service.NewBookService(mockRepo)
@@ -120,19 +163,21 @@ func TestDeleteByID(t *testing.T) {
 	t.Run("delete book successfully", func(t *testing.T) {
 		mockRepo.On("DeleteByID", mock.Anything, 1).Once().Return(nil)
 
-		err := bookService.DeleteByID(context.Background(), 1)
+		id, err := bookService.DeleteByID(context.Background(), 1)
 
 		assert.NoError(t, err)
 		assert.Equal(t, err, nil)
+		assert.Equal(t, id, 1)
 		mockRepo.AssertExpectations(t)
 	})
 
 	t.Run("repository error during GetByID", func(t *testing.T) {
 		mockRepo.On("DeleteByID", mock.Anything, 3).Once().Return(errors.New("repository error"))
 
-		err := bookService.DeleteByID(context.Background(), 3)
+		id, err := bookService.DeleteByID(context.Background(), 3)
 
 		assert.Error(t, err)
+		assert.Equal(t, id, nil)
 		mockRepo.AssertExpectations(t)
 	})
 }

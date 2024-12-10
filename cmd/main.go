@@ -21,5 +21,6 @@ func main() {
 }
 
 // TODO: Corrigir error de last insert no book repository ✅
-// TODO: Adicionar repository dinâmico para dar update no book
-// TODO: Adicionar testes faltando para o book service e controller
+// TODO: Adicionar repository dinâmico para dar update no book ✅
+// TODO: Remover camada de service e fazer interação direta em controller e repository
+// TODO: Adicionar testes faltando para os controllers
