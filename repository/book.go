@@ -18,8 +18,8 @@ func NewBookRepository(db *sql.DB) *BookRepository {
 	return &BookRepository{db: db}
 }
 
-func (s *BookRepository) Create(ctx context.Context, book types.CreateBookPayload) (int64, error) {
-	var id int64
+func (s *BookRepository) Create(ctx context.Context, book types.CreateBookPayload) (int, error) {
+	var id int
 	err := s.db.QueryRowContext(
 		ctx,
 		"INSERT INTO books (name, description, author, genres, release_year, number_of_pages, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
@@ -72,8 +72,8 @@ func (s *BookRepository) GetByID(ctx context.Context, id int) (*types.Book, erro
 
 // Verificar se o body está correto no controller
 // Verificar se há valores para serem atualizados no controller
-func (s *BookRepository) UpdateByID(ctx context.Context, id int64, updates types.BookUpdatePayload) error {
-	query := "UPDATE books SET "
+func (s *BookRepository) UpdateByID(ctx context.Context, id int, newBook types.UpdateBookPayload) (*types.Book, error) {
+	query := fmt.Sprintf("UPDATE books SET updated_at = '%s', ", time.Now().Format("2006-01-02 15:04:05"))
 	args := []any{}
 	counter := 1
 
@@ -81,13 +81,13 @@ func (s *BookRepository) UpdateByID(ctx context.Context, id int64, updates types
 		name  string
 		value any
 	}{
-		{"name", updates.Name},
-		{"description", updates.Description},
-		{"author", updates.Author},
-		{"genres", updates.Genres},
-		{"release_year", updates.ReleaseYear},
-		{"number_of_pages", updates.NumberOfPages},
-		{"image_url", updates.ImageUrl},
+		{"name", newBook.Name},
+		{"description", newBook.Description},
+		{"author", newBook.Author},
+		{"genres", newBook.Genres},
+		{"release_year", newBook.ReleaseYear},
+		{"number_of_pages", newBook.NumberOfPages},
+		{"image_url", newBook.ImageUrl},
 	}
 
 	for _, field := range fields {
@@ -103,26 +103,38 @@ func (s *BookRepository) UpdateByID(ctx context.Context, id int64, updates types
 	}
 
 	if len(args) == 0 {
-		return fmt.Errorf("no fields to update for book with ID %d", id)
+		return nil, fmt.Errorf("no fields to update for book with ID %d", id)
 	}
 
-	query = query[:len(query)-2] + fmt.Sprintf(" WHERE id = $%d", counter)
+	query = query[:len(query)-2] + fmt.Sprintf(" WHERE id = $%d RETURNING id, name, description, author, genres, release_year, number_of_pages, image_url, created_at, updated_at", counter)
 	args = append(args, id)
 
-	_, err := s.db.ExecContext(ctx, query, args...)
+	updatedBook := &types.Book{}
+	err := s.db.QueryRowContext(ctx, query, args...).Scan(
+		&updatedBook.ID,
+		&updatedBook.Name,
+		&updatedBook.Description,
+		&updatedBook.Author,
+		pq.Array(&updatedBook.Genres),
+		&updatedBook.ReleaseYear,
+		&updatedBook.NumberOfPages,
+		&updatedBook.ImageUrl,
+		&updatedBook.CreatedAt,
+		&updatedBook.UpdatedAt,
+	)
 	if err != nil {
-		return &UpdateError{
+		return nil, &UpdateError{
 			Entity: "book",
 			ID:     int(id),
 			Err:    err,
 		}
 	}
 
-	return nil
+	return updatedBook, nil
 }
 
-func (s *BookRepository) DeleteByID(ctx context.Context, id int) (int64, error) {
-	var id_returned int64
+func (s *BookRepository) DeleteByID(ctx context.Context, id int) (int, error) {
+	var id_returned int
 	err := s.db.QueryRowContext(
 		ctx,
 		"UPDATE books SET deleted_at = $2 WHERE id = $1 RETURNING id",

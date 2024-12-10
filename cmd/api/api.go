@@ -38,6 +38,7 @@ func (s *APIServer) SetupRouter(
 	bookController := controller.NewBookController(bookService)
 	subrouter.HandleFunc("/book", bookController.HandleCreateBook).Methods(http.MethodPost)
 	subrouter.HandleFunc("/book/{id}", bookController.HandleGetBookByID).Methods(http.MethodGet)
+	subrouter.HandleFunc("/book/{id}", bookController.HandleUpdateBookByID).Methods(http.MethodPut)
 	subrouter.HandleFunc("/book/{id}", bookController.HandleDeleteBookByID).Methods(http.MethodDelete)
 
 	s.router = router

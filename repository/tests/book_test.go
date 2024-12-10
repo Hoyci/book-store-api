@@ -40,7 +40,7 @@ func TestCreateBook(t *testing.T) {
 		id, err := store.Create(context.Background(), book)
 
 		assert.NoError(t, err)
-		assert.Equal(t, int64(1), id)
+		assert.Equal(t, int(1), id)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -84,7 +84,7 @@ func TestGetBookByID(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, book)
 
-		expectedID := int64(1)
+		expectedID := 1
 		assert.Equal(t, expectedID, book.ID)
 		assert.Equal(t, "Go Programming", book.Name)
 		assert.Equal(t, expectedCreatedAt, book.CreatedAt)
@@ -137,60 +137,81 @@ func TestUpdateBook(t *testing.T) {
 
 	store := repository.NewBookRepository(db)
 
-	t.Run("successfully update book without NumberOfPages", func(t *testing.T) {
-		updates := types.BookUpdatePayload{
+	t.Run("successfully update book", func(t *testing.T) {
+		updates := types.UpdateBookPayload{
 			Name:        stringPtr("Updated Book Name"),
 			Description: stringPtr("Updated Description"),
-			Genres:      &[]string{"Updated Genre 1", "Updated Genre 2"},
+			Genres:      &[]string{"Genre1", "Genre2"},
 			ReleaseYear: int32Ptr(2025),
 		}
 
-		mock.ExpectExec("UPDATE books SET").
+		mock.ExpectQuery("UPDATE books SET").
 			WithArgs(
 				"Updated Book Name",
 				"Updated Description",
-				pq.Array([]string{"Updated Genre 1", "Updated Genre 2"}),
+				pq.Array([]string{"Genre1", "Genre2"}),
 				2025,
-				int64(1),
+				1,
 			).
-			WillReturnResult(sqlmock.NewResult(1, 1))
+			WillReturnRows(sqlmock.NewRows([]string{
+				"id", "name", "description", "author", "genres", "release_year", "number_of_pages", "image_url", "created_at", "updated_at",
+			}).AddRow(
+				1,
+				"Updated Book Name",
+				"Updated Description",
+				"Author Name",
+				pq.Array([]string{"Genre1", "Genre2"}),
+				2025,
+				300,
+				"http://example.com/image.jpg",
+				time.Now(),
+				time.Now(),
+			))
 
-		err := store.UpdateByID(context.Background(), 1, updates)
+		result, err := store.UpdateByID(context.Background(), 1, updates)
 
 		assert.NoError(t, err)
-		if err := mock.ExpectationsWereMet(); err != nil {
-			t.Errorf("unmet expectations: %v", err)
-		}
+		assert.NotNil(t, result)
+		assert.Equal(t, 1, result.ID)
+		assert.Equal(t, "Updated Book Name", result.Name)
+		assert.Equal(t, "Updated Description", result.Description)
+		assert.Equal(t, []string{"Genre1", "Genre2"}, result.Genres)
+
+		err = mock.ExpectationsWereMet()
+		assert.NoError(t, err)
 	})
 
 	t.Run("no fields to update", func(t *testing.T) {
-		emptyUpdates := types.BookUpdatePayload{}
-		err := store.UpdateByID(context.Background(), 1, emptyUpdates)
+		emptyUpdates := types.UpdateBookPayload{}
+		result, err := store.UpdateByID(context.Background(), 1, emptyUpdates)
 
 		assert.Error(t, err, "no fields to update for book with ID %d", 1)
+		assert.Nil(t, result)
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
 		}
 	})
 
-	t.Run("database execution error", func(t *testing.T) {
-		updates := types.BookUpdatePayload{
-			Name: stringPtr("Error Book"),
+	t.Run("database error during update", func(t *testing.T) {
+		updates := types.UpdateBookPayload{
+			Name: stringPtr("Error Book Name"),
 		}
 
-		mock.ExpectExec("UPDATE books SET").
-			WithArgs("Error Book", int64(1)).
-			WillReturnError(fmt.Errorf("database error"))
+		mock.ExpectQuery("UPDATE books SET").
+			WithArgs(
+				"Error Book Name",
+				1,
+			).
+			WillReturnError(sqlmock.ErrCancelled)
 
-		err := store.UpdateByID(context.Background(), 1, updates)
+		result, err := store.UpdateByID(context.Background(), 1, updates)
 
-		var updateErr *repository.UpdateError
 		assert.Error(t, err)
-		assert.True(t, errors.As(err, &updateErr))
-		assert.Equal(t, 1, updateErr.ID)
-		if err := mock.ExpectationsWereMet(); err != nil {
-			t.Errorf("unmet expectations: %v", err)
-		}
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "failed to update entity 'book'")
+
+		err = mock.ExpectationsWereMet()
+		assert.NoError(t, err)
 	})
 }
 

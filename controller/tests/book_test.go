@@ -21,14 +21,24 @@ type MockBookService struct {
 	mock.Mock
 }
 
-func (m *MockBookService) Create(ctx context.Context, payload types.CreateBookPayload) (int64, error) {
+func (m *MockBookService) Create(ctx context.Context, payload types.CreateBookPayload) (int, error) {
 	args := m.Called(ctx, payload)
-	return args.Get(0).(int64), args.Error(1)
+	return args.Get(0).(int), args.Error(1)
 }
 
 func (m *MockBookService) GetByID(ctx context.Context, id int) (*types.Book, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(*types.Book), args.Error(1)
+}
+
+func (m *MockBookService) UpdateByID(ctx context.Context, id int, newBook types.UpdateBookPayload) (*types.Book, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(*types.Book), args.Error(1)
+}
+
+func (m *MockBookService) DeleteByID(ctx context.Context, id int) (int, error) {
+	args := m.Called(ctx, id)
+	return args.Get(0).(int), args.Error(1)
 }
 
 func TestHandleGetBookByID(t *testing.T) {
@@ -114,7 +124,7 @@ func TestHandleGetBookByID(t *testing.T) {
 	})
 }
 
-func TestHandleCreateook(t *testing.T) {
+func TestHandleCreateBook(t *testing.T) {
 	mockService := new(MockBookService)
 
 	apiServer := api.NewApiServer(":8080", nil)
@@ -146,7 +156,7 @@ func TestHandleCreateook(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when body is a valid JSON but missing key", func(t *testing.T) {
-		mockService.On("Create", mock.Anything, mock.Anything).Return(int64(1), nil)
+		mockService.On("Create", mock.Anything, mock.Anything).Return(int(1), nil)
 
 		payload := types.CreateBookPayload{
 			// Name:          "Go Programming",
@@ -179,7 +189,7 @@ func TestHandleCreateook(t *testing.T) {
 	})
 
 	t.Run("it should successfully create a book", func(t *testing.T) {
-		mockService.On("Create", mock.Anything, mock.Anything).Return(int64(1), nil)
+		mockService.On("Create", mock.Anything, mock.Anything).Return(int(1), nil)
 
 		payload := types.CreateBookPayload{
 			Name:          "Go Programming",
@@ -212,7 +222,7 @@ func TestHandleCreateook(t *testing.T) {
 	})
 
 	t.Run("it should throw a database insert error", func(t *testing.T) {
-		mockService.On("Create", mock.Anything, mock.Anything).Return(int64(0), &repository.InsertError{
+		mockService.On("Create", mock.Anything, mock.Anything).Return(0, &repository.InsertError{
 			Entity: "Go Programming",
 			Err:    errors.New("duplicate key"),
 		})
