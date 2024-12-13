@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/hoyci/book-store-api/config"
+	_ "github.com/lib/pq"
 )
 
 func NewPGStorage() *sql.DB {

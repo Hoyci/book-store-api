@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 func ParseJSON(r *http.Request, payload any) error {
@@ -28,4 +29,15 @@ func WriteError(w http.ResponseWriter, status int, err any) {
 			"error": err,
 		},
 	)
+}
+
+func StringPtr(s string) *string {
+	return &s
+}
+
+func IntPtr(i int) *int {
+	return &i
+}
+func TimePtr(t time.Time) *time.Time {
+	return &t
 }

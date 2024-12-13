@@ -6,54 +6,45 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/config"
-	"github.com/hoyci/book-store-api/controller"
-	"github.com/hoyci/book-store-api/repository"
-	"github.com/hoyci/book-store-api/service"
+	"github.com/hoyci/book-store-api/service/book"
+	"github.com/hoyci/book-store-api/service/healthcheck"
 )
 
 type APIServer struct {
 	addr   string
 	db     *sql.DB
-	router *mux.Router
+	Router *mux.Router
+	config config.Config
 }
 
 func NewApiServer(addr string, db *sql.DB) *APIServer {
 	return &APIServer{
 		addr:   addr,
 		db:     db,
-		router: nil,
+		Router: nil,
+		config: config.Envs,
 	}
 }
 
 func (s *APIServer) SetupRouter(
-	healthcheckService service.HealthcheckServiceInterface,
-	bookService service.BookServiceInterface,
+	healthCheckHandler *healthcheck.HealthCheckHandler,
+	bookHandler *book.BookHandler,
 ) *mux.Router {
 	router := mux.NewRouter()
 	subrouter := router.PathPrefix("/api/v1").Subrouter()
 
-	healthcheckController := controller.NewHealthcheckController(healthcheckService)
-	subrouter.HandleFunc("/healthcheck", healthcheckController.HandleHealthcheck).Methods("GET")
+	subrouter.HandleFunc("/healthcheck", healthCheckHandler.HandleHealthCheck).Methods(http.MethodGet)
 
-	bookController := controller.NewBookController(bookService)
-	subrouter.HandleFunc("/book", bookController.HandleCreateBook).Methods(http.MethodPost)
-	subrouter.HandleFunc("/book/{id}", bookController.HandleGetBookByID).Methods(http.MethodGet)
-	subrouter.HandleFunc("/book/{id}", bookController.HandleUpdateBookByID).Methods(http.MethodPut)
-	subrouter.HandleFunc("/book/{id}", bookController.HandleDeleteBookByID).Methods(http.MethodDelete)
+	subrouter.HandleFunc("/book", bookHandler.HandleCreateBook).Methods(http.MethodPost)
+	subrouter.HandleFunc("/book/{id}", bookHandler.HandleGetBookByID).Methods(http.MethodGet)
+	subrouter.HandleFunc("/book/{id}", bookHandler.HandleUpdateBookByID).Methods(http.MethodPut)
+	subrouter.HandleFunc("/book/{id}", bookHandler.HandleDeleteBookByID).Methods(http.MethodDelete)
 
-	s.router = router
+	s.Router = router
 
 	return router
 }
 
 func (s *APIServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if s.router == nil {
-		healthcheckService := service.NewHealthcheckService(config.Envs)
-
-		bookRepository := repository.NewBookRepository(s.db)
-		bookService := service.NewBookService(bookRepository)
-
-		s.SetupRouter(healthcheckService, bookService)
-	}
-	s.router.ServeHTTP(w, r)
+	s.Router.ServeHTTP(w, r)
 }

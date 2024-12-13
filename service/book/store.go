@@ -1,4 +1,4 @@
-package repository
+package book
 
 import (
 	"context"
@@ -10,15 +10,15 @@ import (
 	"github.com/lib/pq"
 )
 
-type BookRepository struct {
+type BookStore struct {
 	db *sql.DB
 }
 
-func NewBookRepository(db *sql.DB) *BookRepository {
-	return &BookRepository{db: db}
+func NewBookStore(db *sql.DB) *BookStore {
+	return &BookStore{db: db}
 }
 
-func (s *BookRepository) Create(ctx context.Context, book types.CreateBookPayload) (int, error) {
+func (s *BookStore) Create(ctx context.Context, book types.CreateBookPayload) (int, error) {
 	var id int
 	err := s.db.QueryRowContext(
 		ctx,
@@ -33,19 +33,19 @@ func (s *BookRepository) Create(ctx context.Context, book types.CreateBookPayloa
 	).Scan(&id)
 
 	if err != nil {
-		return 0, &InsertError{
-			Entity: book.Name,
-			Err:    err,
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("failed to insert entity 'book': %v", err)
 		}
+		return 0, fmt.Errorf("unexpected error: %w", err)
 	}
 
 	return id, nil
 }
 
-func (s *BookRepository) GetByID(ctx context.Context, id int) (*types.Book, error) {
+func (s *BookStore) GetByID(ctx context.Context, id int) (*types.Book, error) {
 	book := &types.Book{}
 
-	err := s.db.QueryRowContext(ctx, "SELECT id, name, description, author, genres, release_year, number_of_pages, image_url, created_at FROM books WHERE id = $1 and deleted_at = null", id).
+	err := s.db.QueryRowContext(ctx, "SELECT * FROM books WHERE id = $1 AND deleted_at IS null", id).
 		Scan(
 			&book.ID,
 			&book.Name,
@@ -56,23 +56,20 @@ func (s *BookRepository) GetByID(ctx context.Context, id int) (*types.Book, erro
 			&book.NumberOfPages,
 			&book.ImageUrl,
 			&book.CreatedAt,
+			&book.UpdatedAt,
+			&book.DeletedAt,
 		)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, &ResourceNotFoundError{ID: id}
+			return nil, fmt.Errorf("resource with ID %d not found", id)
 		}
-		return nil, &InternalDatabaseError{
-			Message: fmt.Sprintf("failed to fetch book by ID %d", id),
-			Err:     err,
-		}
+		return nil, fmt.Errorf("unexpected error: %w", err)
 	}
 
 	return book, nil
 }
 
-// Verificar se o body está correto no controller
-// Verificar se há valores para serem atualizados no controller
-func (s *BookRepository) UpdateByID(ctx context.Context, id int, newBook types.UpdateBookPayload) (*types.Book, error) {
+func (s *BookStore) UpdateByID(ctx context.Context, id int, newBook types.UpdateBookPayload) (*types.Book, error) {
 	query := fmt.Sprintf("UPDATE books SET updated_at = '%s', ", time.Now().Format("2006-01-02 15:04:05"))
 	args := []any{}
 	counter := 1
@@ -123,40 +120,32 @@ func (s *BookRepository) UpdateByID(ctx context.Context, id int, newBook types.U
 		&updatedBook.UpdatedAt,
 	)
 	if err != nil {
-		return nil, &UpdateError{
-			Entity: "book",
-			ID:     int(id),
-			Err:    err,
-		}
+		return nil, fmt.Errorf("failed to update entity 'book' with id '%d': %v", id, err)
 	}
 
 	return updatedBook, nil
 }
 
-func (s *BookRepository) DeleteByID(ctx context.Context, id int) (int, error) {
-	var id_returned int
+func (s *BookStore) DeleteByID(ctx context.Context, id int) (int, error) {
+	var returnedID int
 	err := s.db.QueryRowContext(
 		ctx,
 		"UPDATE books SET deleted_at = $2 WHERE id = $1 RETURNING id",
 		id,
 		time.Now(),
-	).Scan(&id_returned)
+	).Scan(&returnedID)
 	if err != nil {
-		return 0, &DeleteError{
-			Entity: "book",
-			ID:     id,
-			Err:    err,
-		}
+		return 0, fmt.Errorf("failed to delete entity 'book' with id '%d': %v", id, err)
 	}
 
-	return id_returned, nil
+	return returnedID, nil
 }
 
 func isNil(value any) bool {
 	switch v := value.(type) {
 	case *string:
 		return v == nil
-	case *int32:
+	case *int:
 		return v == nil
 	case *[]string:
 		return v == nil

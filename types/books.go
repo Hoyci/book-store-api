@@ -5,9 +5,11 @@ import (
 	"time"
 )
 
-type BookRepository interface {
-	Create(ctx context.Context, book Book) (int64, error)
+type BookStore interface {
+	Create(ctx context.Context, book CreateBookPayload) (int, error)
 	GetByID(ctx context.Context, id int) (*Book, error)
+	UpdateByID(ctx context.Context, id int, book UpdateBookPayload) (*Book, error)
+	DeleteByID(ctx context.Context, id int) (int, error)
 }
 
 type Book struct {
@@ -39,7 +41,7 @@ type UpdateBookPayload struct {
 	Description   *string   `json:"description,omitempty" validate:"omitempty,min=5"`
 	Author        *string   `json:"author,omitempty" validate:"omitempty,min=3"`
 	Genres        *[]string `json:"genres,omitempty" validate:"omitempty,dive,min=1"`
-	ReleaseYear   *int      `json:"release_year,omitempty" validate:"omitempty,gte=1500,lte=2099"`
-	NumberOfPages *int      `json:"number_of_pages,omitempty" validate:"omitempty,gte=1"`
-	ImageUrl      *string   `json:"image_url,omitempty" validate:"omitempty,url"`
+	ReleaseYear   *int      `json:"releaseYear,omitempty" validate:"omitempty,gte=1500,lte=2099"`
+	NumberOfPages *int      `json:"numberOfPages,omitempty" validate:"omitempty,gte=1"`
+	ImageUrl      *string   `json:"imageUrl,omitempty" validate:"omitempty,url"`
 }
