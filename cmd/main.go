@@ -8,19 +8,23 @@ import (
 	"github.com/hoyci/book-store-api/cmd/api"
 	"github.com/hoyci/book-store-api/config"
 	"github.com/hoyci/book-store-api/db"
+	"github.com/hoyci/book-store-api/service/book"
+	"github.com/hoyci/book-store-api/service/healthcheck"
 )
 
 func main() {
 	db := db.NewPGStorage()
-
 	path := fmt.Sprintf("127.0.0.1:%s", config.Envs.Port)
+
 	apiServer := api.NewApiServer(path, db)
 
-	log.Println("Listening on:", path)
-	http.ListenAndServe(path, apiServer)
-}
+	healthCheckHandler := healthcheck.NewHealthCheckHandler(config.Envs)
 
-// TODO: Corrigir error de last insert no book repository ✅
-// TODO: Adicionar repository dinâmico para dar update no book ✅
-// TODO: Remover camada de service e fazer interação direta em controller e repository
-// TODO: Adicionar testes faltando para os controllers
+	bookStore := book.NewBookStore(db)
+	bookHandler := book.NewBookHandler(bookStore)
+
+	apiServer.SetupRouter(healthCheckHandler, bookHandler)
+
+	log.Println("Listening on:", path)
+	http.ListenAndServe(path, apiServer.Router)
+}

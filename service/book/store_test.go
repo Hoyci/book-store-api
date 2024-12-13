@@ -1,15 +1,14 @@
-package repository
+package book
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/hoyci/book-store-api/repository"
 	"github.com/hoyci/book-store-api/types"
+	"github.com/hoyci/book-store-api/utils"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 )
@@ -21,7 +20,7 @@ func TestCreateBook(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := repository.NewBookRepository(db)
+	store := NewBookStore(db)
 	book := types.CreateBookPayload{
 		Name:          "Go Programming",
 		Description:   "A book about Go programming",
@@ -50,13 +49,29 @@ func TestCreateBook(t *testing.T) {
 	t.Run("database execution error", func(t *testing.T) {
 		mock.ExpectQuery("INSERT INTO books").
 			WithArgs(book.Name, book.Description, book.Author, pq.Array(book.Genres), book.ReleaseYear, book.NumberOfPages, book.ImageUrl).
+			WillReturnError(fmt.Errorf("failed to insert entity 'book'"))
+
+		id, err := store.Create(context.Background(), book)
+
+		assert.Error(t, err)
+		assert.Zero(t, id)
+		assert.Contains(t, err.Error(), "failed to insert entity 'book'")
+
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+
+	t.Run("database unexpected error", func(t *testing.T) {
+		mock.ExpectQuery("INSERT INTO books").
+			WithArgs(book.Name, book.Description, book.Author, pq.Array(book.Genres), book.ReleaseYear, book.NumberOfPages, book.ImageUrl).
 			WillReturnError(fmt.Errorf("database connection error"))
 
 		id, err := store.Create(context.Background(), book)
 
 		assert.Error(t, err)
 		assert.Zero(t, id)
-		assert.Contains(t, err.Error(), "failed to insert entity")
+		assert.Contains(t, err.Error(), "unexpected error")
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -71,14 +86,14 @@ func TestGetBookByID(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := repository.NewBookRepository(db)
-	expectedCreatedAt := time.Date(2024, time.January, 1, 12, 0, 0, 0, time.UTC)
+	store := NewBookStore(db)
+	expectedCreatedAt := time.Date(0001, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	t.Run("successfully get book by ID", func(t *testing.T) {
-		mock.ExpectQuery("SELECT id, name, description, author, genres").
+		mock.ExpectQuery("SELECT *").
 			WithArgs(1).
-			WillReturnRows(sqlmock.NewRows([]string{"id", "name", "description", "author", "genres", "release_year", "number_of_pages", "image_url", "created_at"}).
-				AddRow(1, "Go Programming", "A book about Go programming", "John Doe", pq.Array([]string{"Programming"}), 2024, 300, "http://example.com/go.jpg", expectedCreatedAt))
+			WillReturnRows(sqlmock.NewRows([]string{"id", "name", "description", "author", "genres", "release_year", "number_of_pages", "image_url", "created_at", "updated_at", "deleted_at"}).
+				AddRow(1, "Go Programming", "A book about Go programming", "John Doe", pq.Array([]string{"Programming"}), 2024, 300, "http://example.com/go.jpg", expectedCreatedAt, nil, nil))
 
 		book, err := store.GetByID(context.Background(), 1)
 		assert.NoError(t, err)
@@ -94,33 +109,31 @@ func TestGetBookByID(t *testing.T) {
 		}
 	})
 
-	t.Run("database execution error", func(t *testing.T) {
-		mock.ExpectQuery("SELECT id, name, description, author, genres").
+	t.Run("book not found", func(t *testing.T) {
+		mock.ExpectQuery("SELECT *").
 			WithArgs(1).
-			WillReturnError(fmt.Errorf("database connection error"))
+			WillReturnRows(sqlmock.NewRows([]string{"id", "name", "description", "author", "genres", "release_year", "number_of_pages", "image_url", "created_at", "updated_at", "deleted_at"}))
 
 		book, err := store.GetByID(context.Background(), 1)
+
 		assert.Nil(t, book)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to fetch book by ID")
+		assert.Equal(t, err.Error(), "resource with ID 1 not found")
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
 		}
 	})
 
-	t.Run("book not found", func(t *testing.T) {
-		mock.ExpectQuery("SELECT id, name, description, author, genres").
+	t.Run("database execution error", func(t *testing.T) {
+		mock.ExpectQuery("SELECT *").
 			WithArgs(1).
-			WillReturnRows(sqlmock.NewRows([]string{"id", "name", "description", "author", "genres", "release_year", "number_of_pages", "image_url", "created_at"})) // Nenhuma linha
+			WillReturnError(fmt.Errorf("database connection error"))
 
 		book, err := store.GetByID(context.Background(), 1)
-
-		var notFoundErr *repository.ResourceNotFoundError
 		assert.Nil(t, book)
 		assert.Error(t, err)
-		assert.True(t, errors.As(err, &notFoundErr))
-		assert.Equal(t, 1, notFoundErr.ID)
+		assert.Contains(t, err.Error(), "unexpected error")
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -135,14 +148,14 @@ func TestUpdateBook(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := repository.NewBookRepository(db)
+	store := NewBookStore(db)
 
 	t.Run("successfully update book", func(t *testing.T) {
 		updates := types.UpdateBookPayload{
-			Name:        stringPtr("Updated Book Name"),
-			Description: stringPtr("Updated Description"),
+			Name:        utils.StringPtr("Updated Book Name"),
+			Description: utils.StringPtr("Updated Description"),
 			Genres:      &[]string{"Genre1", "Genre2"},
-			ReleaseYear: int32Ptr(2025),
+			ReleaseYear: utils.IntPtr(2025),
 		}
 
 		mock.ExpectQuery("UPDATE books SET").
@@ -194,7 +207,7 @@ func TestUpdateBook(t *testing.T) {
 
 	t.Run("database error during update", func(t *testing.T) {
 		updates := types.UpdateBookPayload{
-			Name: stringPtr("Error Book Name"),
+			Name: utils.StringPtr("Error Book Name"),
 		}
 
 		mock.ExpectQuery("UPDATE books SET").
@@ -222,7 +235,7 @@ func TestDeleteByID(t *testing.T) {
 	}
 	defer db.Close()
 
-	store := repository.NewBookRepository(db)
+	store := NewBookStore(db)
 
 	t.Run("successfully delete book by ID", func(t *testing.T) {
 		mock.ExpectQuery("UPDATE books SET deleted_at").
@@ -230,7 +243,7 @@ func TestDeleteByID(t *testing.T) {
 			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 
 		id, err := store.DeleteByID(context.Background(), 1)
-		expectedID := int64(1)
+		expectedID := 1
 
 		assert.NoError(t, err)
 		assert.Equal(t, expectedID, id)
@@ -247,26 +260,12 @@ func TestDeleteByID(t *testing.T) {
 
 		id, err := store.DeleteByID(context.Background(), 1)
 
+		assert.Equal(t, id, 0)
 		assert.Error(t, err)
-		assert.Equal(t, int64(0), id)
-
-		var deleteErr *repository.DeleteError
-		if assert.ErrorAs(t, err, &deleteErr) {
-			assert.Contains(t, deleteErr.Error(), fmt.Sprintf("failed to delete entity 'book' with id '%d'", 1))
-			assert.Contains(t, deleteErr.Error(), "database connection error")
-		}
+		assert.Contains(t, err.Error(), "failed to delete entity 'book' with id '1'")
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
 		}
 	})
-}
-
-// Funções auxiliares para criar ponteiros
-func stringPtr(s string) *string {
-	return &s
-}
-
-func int32Ptr(i int32) *int32 {
-	return &i
 }
