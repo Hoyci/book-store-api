@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hoyci/book-store-api/types"
+	"github.com/hoyci/book-store-api/utils"
 	"github.com/lib/pq"
 )
 
@@ -33,10 +34,7 @@ func (s *BookStore) Create(ctx context.Context, book types.CreateBookPayload) (i
 	).Scan(&id)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, fmt.Errorf("failed to insert entity 'book': %v", err)
-		}
-		return 0, fmt.Errorf("unexpected error: %w", err)
+		return 0, fmt.Errorf("unexpected error inserting book: %w", err)
 	}
 
 	return id, nil
@@ -61,9 +59,9 @@ func (s *BookStore) GetByID(ctx context.Context, id int) (*types.Book, error) {
 		)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("resource with ID %d not found", id)
+			return nil, fmt.Errorf("no row found with id: '%d'", id)
 		}
-		return nil, fmt.Errorf("unexpected error: %w", err)
+		return nil, fmt.Errorf("unexpected error getting book with id: '%d': %v", id, err)
 	}
 
 	return book, nil
@@ -88,7 +86,7 @@ func (s *BookStore) UpdateByID(ctx context.Context, id int, newBook types.Update
 	}
 
 	for _, field := range fields {
-		if !isNil(field.value) {
+		if !utils.IsNil(field.value) {
 			query += fmt.Sprintf("%s = $%d, ", field.name, counter)
 			if ptr, ok := field.value.(*[]string); ok {
 				args = append(args, pq.Array(*ptr))
@@ -120,7 +118,10 @@ func (s *BookStore) UpdateByID(ctx context.Context, id int, newBook types.Update
 		&updatedBook.UpdatedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update entity 'book' with id '%d': %v", id, err)
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("no row found with id: '%d'", id)
+		}
+		return nil, fmt.Errorf("unexpected error updating book with id: '%d': %v", id, err)
 	}
 
 	return updatedBook, nil
@@ -135,21 +136,11 @@ func (s *BookStore) DeleteByID(ctx context.Context, id int) (int, error) {
 		time.Now(),
 	).Scan(&returnedID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to delete entity 'book' with id '%d': %v", id, err)
+		if err == sql.ErrNoRows {
+			return 0, fmt.Errorf("no row found with id: '%d'", id)
+		}
+		return 0, fmt.Errorf("unexpected error deleting book with id: '%d': %v", id, err)
 	}
 
 	return returnedID, nil
-}
-
-func isNil(value any) bool {
-	switch v := value.(type) {
-	case *string:
-		return v == nil
-	case *int:
-		return v == nil
-	case *[]string:
-		return v == nil
-	default:
-		return value == nil
-	}
 }
