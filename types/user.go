@@ -1,6 +1,16 @@
 package types
 
-import "time"
+import (
+	"context"
+	"time"
+)
+
+type UserStore interface {
+	Create(ctx context.Context, user CreateUserDatabasePayload) (*User, error)
+	GetByID(ctx context.Context, id int) (*User, error)
+	UpdateByID(ctx context.Context, id int, user UpdateUserPayload) (*User, error)
+	DeleteByID(ctx context.Context, id int) (int, error)
+}
 
 type User struct {
 	ID           int        `json:"id"`
@@ -13,10 +23,10 @@ type User struct {
 }
 
 type CreateUserRequestPayload struct {
-	Username        string `json:"username"`
-	Email           string `json:"email"`
-	Password        string `json:"password"`
-	ConfirmPassword string `json:"confirmPassword"`
+	Username        string `json:"username" validate:"required,min=5"`
+	Email           string `json:"email" validate:"required,email"`
+	Password        string `json:"password" validate:"required,min=8"`
+	ConfirmPassword string `json:"confirmPassword" validate:"required,min=8"`
 }
 
 type CreateUserDatabasePayload struct {

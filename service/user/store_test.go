@@ -46,12 +46,25 @@ func TestCreateUser(t *testing.T) {
 	t.Run("successfully create user", func(t *testing.T) {
 		mock.ExpectQuery("INSERT INTO users").
 			WithArgs(user.Username, user.Email, user.PasswordHash).
-			WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+			WillReturnRows(
+				sqlmock.NewRows([]string{
+					"id", "username", "email", "created_at", "updated_at", "deleted_at",
+				}).AddRow(
+					1,
+					"JohnDoe",
+					"johndoe@email.com",
+					time.Date(0001, 1, 1, 0, 0, 0, 0, time.UTC),
+					time.Date(0001, 1, 1, 0, 0, 0, 0, time.UTC),
+					time.Date(0001, 1, 1, 0, 0, 0, 0, time.UTC),
+				))
 
-		id, err := store.Create(context.Background(), user)
+		newUser, err := store.Create(context.Background(), user)
 
 		assert.NoError(t, err)
-		assert.Equal(t, int(1), id)
+		assert.Equal(t, 1, newUser.ID)
+		assert.Equal(t, user.Username, newUser.Username)
+		assert.Equal(t, user.Email, newUser.Email)
+		assert.Equal(t, "", newUser.PasswordHash)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)

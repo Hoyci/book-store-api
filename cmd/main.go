@@ -28,3 +28,6 @@ func main() {
 	log.Println("Listening on:", path)
 	http.ListenAndServe(path, apiServer.Router)
 }
+
+// TODO: Remove all err.Error() from internalServerError to prevent user to see what is happening under the hood.
+// TODO: Adicionar um logger para exibir mensagens de erro com maior clareza
