@@ -9,11 +9,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/cmd/api"
+	"github.com/hoyci/book-store-api/config"
 	"github.com/hoyci/book-store-api/service/user"
 	"github.com/hoyci/book-store-api/types"
+	"github.com/hoyci/book-store-api/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -46,17 +49,17 @@ func (m *MockUserStore) DeleteByID(ctx context.Context, id int) (int, error) {
 }
 
 func TestHandleCreateUser(t *testing.T) {
-	setupTestServer := func() (*MockUserStore, *httptest.Server, *mux.Router) {
+	setupTestServer := func() (*MockUserStore, *httptest.Server, *mux.Router, config.Config) {
 		mockUserStore := new(MockUserStore)
 		mockUserHandler := user.NewUserHandler(mockUserStore)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, nil, mockUserHandler)
 		ts := httptest.NewServer(router)
-		return mockUserStore, ts, router
+		return mockUserStore, ts, router, apiServer.Config
 	}
 
 	t.Run("it should throw an error when body is not a valid JSON", func(t *testing.T) {
-		_, ts, router := setupTestServer()
+		_, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
 		invalidBody := bytes.NewReader([]byte("INVALID JSON"))
@@ -81,11 +84,11 @@ func TestHandleCreateUser(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when body is a valid JSON but missing key", func(t *testing.T) {
-		_, ts, router := setupTestServer()
+		_, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
 		payload := types.CreateUserRequestPayload{
-			// Username:        "John Doe",
+			// Username:        "JohnDoe",
 			// Email:           "johndoe@email.com",
 			// Password:        "123mudar",
 			// ConfirmPassword: "123mudar",
@@ -112,11 +115,11 @@ func TestHandleCreateUser(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when body does not contain a valid email", func(t *testing.T) {
-		_, ts, router := setupTestServer()
+		_, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
 		payload := types.CreateUserRequestPayload{
-			Username:        "John Doe",
+			Username:        "JohnDoe",
 			Email:           "johndoe",
 			Password:        "123mudar",
 			ConfirmPassword: "123mudar",
@@ -143,11 +146,11 @@ func TestHandleCreateUser(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when password or confirmPassword is smaller than 8 chars", func(t *testing.T) {
-		_, ts, router := setupTestServer()
+		_, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
 		payload := types.CreateUserRequestPayload{
-			Username:        "John Doe",
+			Username:        "JohnDoe",
 			Email:           "johndoe@email.com",
 			Password:        "12345",
 			ConfirmPassword: "12345",
@@ -174,13 +177,13 @@ func TestHandleCreateUser(t *testing.T) {
 	})
 
 	t.Run("it should throw a database insert error", func(t *testing.T) {
-		mockUserStore, ts, router := setupTestServer()
+		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		mockUserStore.On("Create", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("failed to insert entity 'user': database error"))
+		mockUserStore.On("Create", mock.Anything, mock.Anything).Return((*types.User)(nil), fmt.Errorf("failed to insert entity 'user': database error"))
 
 		payload := types.CreateUserRequestPayload{
-			Username:        "John Doe",
+			Username:        "JohnDoe",
 			Email:           "johndoe@email.com",
 			Password:        "123mudar",
 			ConfirmPassword: "123mudar",
@@ -202,39 +205,63 @@ func TestHandleCreateUser(t *testing.T) {
 		assert.JSONEq(t, expected, string(responseBody))
 	})
 
-	// t.Run("it should successfully create a user", func(t *testing.T) {
-	// 	mockUserStore, ts, router := setupTestServer()
-	// 	defer ts.Close()
+	t.Run("it should successfully create a user and return a valida JWT Token", func(t *testing.T) {
+		mockUserStore, ts, router, config := setupTestServer()
+		defer ts.Close()
 
-	// 	mockUserStore.On("Create", mock.Anything, mock.Anything).Return(int(1), nil)
+		mockUserStore.On("Create", mock.Anything, mock.Anything).Return(
+			&types.User{
+				ID:        1,
+				Username:  "JohnDoe",
+				Email:     "johndoe@email.com",
+				CreatedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
+				UpdatedAt: nil,
+				DeletedAt: nil,
+			},
+			nil,
+		)
 
-	// 	payload := types.CreateUserPayload{
-	// 		Name:          "Go Programming",
-	// 		Description:   "A user about Go programming",
-	// 		Author:        "John Doe",
-	// 		Genres:        []string{"Programming"},
-	// 		ReleaseYear:   2024,
-	// 		NumberOfPages: 300,
-	// 		ImageUrl:      "http://example.com/go.jpg",
-	// 	}
-	// 	marshalled, _ := json.Marshal(payload)
+		payload := types.CreateUserRequestPayload{
+			Username:        "JohnDoe",
+			Email:           "johndoe@email.com",
+			Password:        "123mudar",
+			ConfirmPassword: "123mudar",
+		}
+		marshalled, _ := json.Marshal(payload)
 
-	// 	req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/user", bytes.NewBuffer(marshalled))
-	// 	w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/user", bytes.NewBuffer(marshalled))
+		w := httptest.NewRecorder()
 
-	// 	router.ServeHTTP(w, req)
+		router.ServeHTTP(w, req)
 
-	// 	res := w.Result()
-	// 	defer res.Body.Close()
+		res := w.Result()
+		defer res.Body.Close()
 
-	// 	assert.Equal(t, http.StatusCreated, res.StatusCode)
+		assert.Equal(t, http.StatusCreated, res.StatusCode)
 
-	// 	responseBody, err := io.ReadAll(res.Body)
-	// 	if err != nil {
-	// 		t.Fatalf("Failed to read response body: %v", err)
-	// 	}
+		responseBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
 
-	// 	expectedResponse := `{"id":1}`
-	// 	assert.JSONEq(t, expectedResponse, string(responseBody))
-	// })
+		var responseMap map[string]interface{}
+		err = json.Unmarshal(responseBody, &responseMap)
+		if err != nil {
+			t.Fatalf("Failed to unmarshal response body: %v", err)
+		}
+
+		tokenString, ok := responseMap["token"].(string)
+		if !ok {
+			t.Fatalf("Token not found or not a string")
+		}
+
+		claims, err := utils.VerifyJWT(tokenString, config.JWTSecret)
+		assert.NoError(t, err, "Failed to verify JWT token")
+
+		t.Log(claims)
+
+		assert.Equal(t, "johndoe@email.com", claims.Email, "Email claim mismatch")
+		assert.Equal(t, "JohnDoe", claims.Username, "Username claim mismatch")
+		assert.Equal(t, 1, claims.UserID, "UserID claim mismatch")
+	})
 }

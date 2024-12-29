@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/hoyci/book-store-api/config"
 	"github.com/hoyci/book-store-api/types"
 	"github.com/hoyci/book-store-api/utils"
 )
@@ -28,11 +29,6 @@ func NewUserHandler(userStore types.UserStore) *UserHandler {
 	return &UserHandler{userStore: userStore}
 }
 
-// Should not be a invalid/empty JSON ✅
-// Should not miss (username, email, password and confirm_password) ✅
-// Should be password and confirm_password equals
-// Should be password and confirm_password lenght >= chars
-// Should return a JWT valid token
 func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	var requestPayload types.CreateUserRequestPayload
 	if err := utils.ParseJSON(r, &requestPayload); err != nil {
@@ -65,11 +61,12 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	newUser, err := h.userStore.Create(r.Context(), databasePayload)
 	if err != nil {
+		fmt.Println(err.Error())
 		utils.WriteError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	token, err := utils.CreateJWT(newUser.ID, newUser.Username, newUser.Email, "ABRACADABRA")
+	token, err := utils.CreateJWT(newUser.ID, newUser.Username, newUser.Email, config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds)
 	if err != nil {
 		fmt.Println("An error occured during the create JWT process")
 		utils.WriteError(w, http.StatusInternalServerError, "internal server error")

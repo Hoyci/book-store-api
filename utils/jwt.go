@@ -14,13 +14,13 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
-func CreateJWT(userID int, username, email string, secretKey string) (string, error) {
+func CreateJWT(userID int, username, email string, secretKey string, expTimeInSeconds int64) (string, error) {
 	claims := CustomClaims{
 		UserID:   userID,
 		Username: username,
 		Email:    email,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expTimeInSeconds) * time.Second)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "book-store-api",
 		},

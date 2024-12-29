@@ -15,7 +15,7 @@ type APIServer struct {
 	addr   string
 	db     *sql.DB
 	Router *mux.Router
-	config config.Config
+	Config config.Config
 }
 
 func NewApiServer(addr string, db *sql.DB) *APIServer {
@@ -23,7 +23,7 @@ func NewApiServer(addr string, db *sql.DB) *APIServer {
 		addr:   addr,
 		db:     db,
 		Router: nil,
-		config: config.Envs,
+		Config: config.Envs,
 	}
 }
 
