@@ -2,20 +2,17 @@ package config
 
 import (
 	"os"
+	"strconv"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	Port        string
-	Environment string
-	DatabaseURL string
-	// DBUser                 string
-	// DBPassword             string
-	// DBAddress              string
-	// DBName                 string
-	// JWTSecret              string
-	// JWTExpirationInSeconds int64
+	Port                   string
+	Environment            string
+	DatabaseURL            string
+	JWTSecret              string
+	JWTExpirationInSeconds int64
 }
 
 var Envs = initConfig()
@@ -24,15 +21,11 @@ func initConfig() Config {
 	godotenv.Load()
 
 	return Config{
-		Port:        getEnv("PORT", "8080"),
-		Environment: getEnv("ENV", "development"),
-		DatabaseURL: getEnv("DATABASE_URL", "postgresql://user:password@localhost:5432/postgres?sslmode=disable"),
-		// DBUser:                 getEnv("DB_USER", "admin"),
-		// DBPassword:             getEnv("DB_PASSWORD", "password"),
-		// DBAddress:              fmt.Sprintf("%s:%s", getEnv("DB_HOST", "127.0.0.1"), getEnv("DB_PORT", "3306")),
-		// DBName:                 getEnv("DB_NAME", "ecom"),
-		// JWTSecret:              getEnv("JWT_SECRET", "not-secret-secret-anymore?"),
-		// JWTExpirationInSeconds: getEnvAsInt("JWT_EXP", 3600*24*7),
+		Port:                   getEnv("PORT", "8080"),
+		Environment:            getEnv("ENV", "development"),
+		DatabaseURL:            getEnv("DATABASE_URL", "postgresql://user:password@localhost:5432/postgres?sslmode=disable"),
+		JWTSecret:              getEnv("SECRET_KEY", "ABRACADABARA"),
+		JWTExpirationInSeconds: getEnvAsInt("JWT_EXP", 3600*24*7),
 	}
 }
 
@@ -44,15 +37,15 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-// func getEnvAsInt(key string, fallback int64) int64 {
-// 	if value, ok := os.LookupEnv(key); ok {
-// 		i, err := strconv.ParseInt(value, 10, 64)
-// 		if err != nil {
-// 			return fallback
-// 		}
+func getEnvAsInt(key string, fallback int64) int64 {
+	if value, ok := os.LookupEnv(key); ok {
+		i, err := strconv.ParseInt(value, 10, 64)
+		if err != nil {
+			return fallback
+		}
 
-// 		return i
-// 	}
+		return i
+	}
 
-// 	return fallback
-// }
+	return fallback
+}

@@ -8,13 +8,14 @@ import (
 	"github.com/hoyci/book-store-api/config"
 	"github.com/hoyci/book-store-api/service/book"
 	"github.com/hoyci/book-store-api/service/healthcheck"
+	"github.com/hoyci/book-store-api/service/user"
 )
 
 type APIServer struct {
 	addr   string
 	db     *sql.DB
 	Router *mux.Router
-	config config.Config
+	Config config.Config
 }
 
 func NewApiServer(addr string, db *sql.DB) *APIServer {
@@ -22,13 +23,14 @@ func NewApiServer(addr string, db *sql.DB) *APIServer {
 		addr:   addr,
 		db:     db,
 		Router: nil,
-		config: config.Envs,
+		Config: config.Envs,
 	}
 }
 
 func (s *APIServer) SetupRouter(
 	healthCheckHandler *healthcheck.HealthCheckHandler,
 	bookHandler *book.BookHandler,
+	userHandler *user.UserHandler,
 ) *mux.Router {
 	router := mux.NewRouter()
 	subrouter := router.PathPrefix("/api/v1").Subrouter()
@@ -39,6 +41,8 @@ func (s *APIServer) SetupRouter(
 	subrouter.HandleFunc("/book/{id}", bookHandler.HandleGetBookByID).Methods(http.MethodGet)
 	subrouter.HandleFunc("/book/{id}", bookHandler.HandleUpdateBookByID).Methods(http.MethodPut)
 	subrouter.HandleFunc("/book/{id}", bookHandler.HandleDeleteBookByID).Methods(http.MethodDelete)
+
+	subrouter.HandleFunc("/user", userHandler.HandleCreateUser).Methods(http.MethodPost)
 
 	s.Router = router
 

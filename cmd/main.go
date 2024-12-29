@@ -10,6 +10,7 @@ import (
 	"github.com/hoyci/book-store-api/db"
 	"github.com/hoyci/book-store-api/service/book"
 	"github.com/hoyci/book-store-api/service/healthcheck"
+	"github.com/hoyci/book-store-api/service/user"
 )
 
 func main() {
@@ -23,8 +24,14 @@ func main() {
 	bookStore := book.NewBookStore(db)
 	bookHandler := book.NewBookHandler(bookStore)
 
-	apiServer.SetupRouter(healthCheckHandler, bookHandler)
+	userStore := user.NewUserStore(db)
+	userHandler := user.NewUserHandler(userStore)
+
+	apiServer.SetupRouter(healthCheckHandler, bookHandler, userHandler)
 
 	log.Println("Listening on:", path)
 	http.ListenAndServe(path, apiServer.Router)
 }
+
+// TODO: Remove all err.Error() from internalServerError to prevent user to see what is happening under the hood.
+// TODO: Adicionar um logger para exibir mensagens de erro com maior clareza

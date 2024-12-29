@@ -19,21 +19,29 @@ func NewUserStore(db *sql.DB) *UserStore {
 	return &UserStore{db: db}
 }
 
-func (s *UserStore) Create(ctx context.Context, user types.CreateUserDatabasePayload) (int, error) {
-	var id int
+func (s *UserStore) Create(ctx context.Context, newUser types.CreateUserDatabasePayload) (*types.User, error) {
+	user := &types.User{}
+
 	err := s.db.QueryRowContext(
 		ctx,
-		"INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id",
-		user.Username,
-		user.Email,
-		user.PasswordHash,
-	).Scan(&id)
+		"INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at, updated_at, deleted_at",
+		newUser.Username,
+		newUser.Email,
+		newUser.PasswordHash,
+	).Scan(
+		&user.ID,
+		&user.Username,
+		&user.Email,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+		&user.DeletedAt,
+	)
 
 	if err != nil {
-		return 0, fmt.Errorf("unexpected error updating user %w", err)
+		return nil, fmt.Errorf("unexpected error updating user %w", err)
 	}
 
-	return id, nil
+	return user, nil
 }
 
 func (s *UserStore) GetByID(ctx context.Context, id int) (*types.User, error) {
