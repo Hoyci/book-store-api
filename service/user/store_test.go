@@ -64,7 +64,6 @@ func TestCreateUser(t *testing.T) {
 		assert.Equal(t, 1, newUser.ID)
 		assert.Equal(t, user.Username, newUser.Username)
 		assert.Equal(t, user.Email, newUser.Email)
-		assert.Equal(t, "", newUser.PasswordHash)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)

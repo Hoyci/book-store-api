@@ -6,7 +6,7 @@ import (
 )
 
 type UserStore interface {
-	Create(ctx context.Context, user CreateUserDatabasePayload) (*User, error)
+	Create(ctx context.Context, user CreateUserDatabasePayload) (*UserResponse, error)
 	GetByID(ctx context.Context, id int) (*UserResponse, error)
 	UpdateByID(ctx context.Context, id int, user UpdateUserPayload) (*UserResponse, error)
 	DeleteByID(ctx context.Context, id int) (int, error)
