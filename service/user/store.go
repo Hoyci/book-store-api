@@ -44,8 +44,8 @@ func (s *UserStore) Create(ctx context.Context, newUser types.CreateUserDatabase
 	return user, nil
 }
 
-func (s *UserStore) GetByID(ctx context.Context, id int) (*types.User, error) {
-	user := &types.User{}
+func (s *UserStore) GetByID(ctx context.Context, id int) (*types.UserResponse, error) {
+	user := &types.UserResponse{}
 
 	err := s.db.QueryRowContext(ctx, "SELECT * FROM users WHERE id = $1 AND deleted_at IS null", id).
 		Scan(
@@ -66,7 +66,7 @@ func (s *UserStore) GetByID(ctx context.Context, id int) (*types.User, error) {
 	return user, nil
 }
 
-func (s *UserStore) UpdateByID(ctx context.Context, id int, newUser types.UpdateUserPayload) (*types.User, error) {
+func (s *UserStore) UpdateByID(ctx context.Context, id int, newUser types.UpdateUserPayload) (*types.UserResponse, error) {
 	query := fmt.Sprintf("UPDATE users SET updated_at = '%s', ", time.Now().Format("2006-01-02 15:04:05"))
 	args := []any{}
 	counter := 1
@@ -98,7 +98,7 @@ func (s *UserStore) UpdateByID(ctx context.Context, id int, newUser types.Update
 	query = query[:len(query)-2] + fmt.Sprintf(" WHERE id = $%d RETURNING id, username, email, created_at, updated_at, deleted_at", counter)
 	args = append(args, id)
 
-	updatedUser := &types.User{}
+	updatedUser := &types.UserResponse{}
 	err := s.db.QueryRowContext(ctx, query, args...).Scan(
 		&updatedUser.ID,
 		&updatedUser.Username,
