@@ -3,8 +3,10 @@ package user
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/config"
 	"github.com/hoyci/book-store-api/types"
 	"github.com/hoyci/book-store-api/utils"
@@ -73,4 +75,82 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.WriteJSON(w, http.StatusCreated, map[string]string{"token": token})
+}
+
+func (h *UserHandler) HandleGetUserByID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		utils.WriteError(w, http.StatusBadRequest, "user ID must be a positive integer")
+		return
+	}
+
+	user, err := h.userStore.GetByID(r.Context(), id)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, user)
+}
+
+func (h *UserHandler) HandleUpdateUserByID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		utils.WriteError(w, http.StatusBadRequest, "user ID must be a positive integer")
+		return
+	}
+
+	var payload types.UpdateUserPayload
+	if err := utils.ParseJSON(r, &payload); err != nil {
+		utils.WriteError(w, http.StatusBadRequest, "body is not a valid json")
+		return
+	}
+
+	if err := validate.Struct(payload); err != nil {
+		var errorMessages []string
+		for _, e := range err.(validator.ValidationErrors) {
+			errorMessages = append(errorMessages, fmt.Sprintf("Field validation for '%s' failed on the '%s' tag", e.Field(), e.Tag()))
+		}
+
+		utils.WriteError(w, http.StatusBadRequest, errorMessages)
+		return
+	}
+
+	if payload.Email == nil && payload.Username == nil {
+		utils.WriteError(w, http.StatusBadRequest, "no fields provided for update")
+		return
+	}
+
+	user, err := h.userStore.UpdateByID(r.Context(), id, payload)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, user)
+}
+
+func (h *UserHandler) HandleDeleteUserByID(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	idStr := vars["id"]
+
+	id, err := strconv.Atoi(idStr)
+	if err != nil || id <= 0 {
+		utils.WriteError(w, http.StatusBadRequest, "book ID must be a positive integer")
+		return
+	}
+
+	returnedID, err := h.userStore.DeleteByID(r.Context(), id)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string]int{"id": returnedID})
 }

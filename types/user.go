@@ -7,8 +7,8 @@ import (
 
 type UserStore interface {
 	Create(ctx context.Context, user CreateUserDatabasePayload) (*User, error)
-	GetByID(ctx context.Context, id int) (*User, error)
-	UpdateByID(ctx context.Context, id int, user UpdateUserPayload) (*User, error)
+	GetByID(ctx context.Context, id int) (*UserResponse, error)
+	UpdateByID(ctx context.Context, id int, user UpdateUserPayload) (*UserResponse, error)
 	DeleteByID(ctx context.Context, id int) (int, error)
 }
 
@@ -20,6 +20,15 @@ type User struct {
 	CreatedAt    time.Time  `json:"createdAt"`
 	DeletedAt    *time.Time `json:"deletedAt"`
 	UpdatedAt    *time.Time `json:"updatedAt"`
+}
+
+type UserResponse struct {
+	ID        int        `json:"id"`
+	Username  string     `json:"username"`
+	Email     string     `json:"email"`
+	CreatedAt time.Time  `json:"createdAt"`
+	DeletedAt *time.Time `json:"deletedAt"`
+	UpdatedAt *time.Time `json:"updatedAt"`
 }
 
 type CreateUserRequestPayload struct {
@@ -36,6 +45,6 @@ type CreateUserDatabasePayload struct {
 }
 
 type UpdateUserPayload struct {
-	Username *string `json:"username,omitempty" validate:"omitempty,min=3"`
-	Email    *string `json:"email,omitempty" validate:"omitempty,min=5"`
+	Username *string `json:"username" validate:"required,min=5"`
+	Email    *string `json:"email" validate:"required,email"`
 }

@@ -209,7 +209,7 @@ func TestHandleGetBookByID(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, res.StatusCode)
 	})
 
-	t.Run("it should throw an error when call endpoint with wrong ID", func(t *testing.T) {
+	t.Run("it should throw an error when call endpoint with wrong book ID", func(t *testing.T) {
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
@@ -307,7 +307,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, res.StatusCode)
 	})
 
-	t.Run("it should throw an error when call endpoint with wrong ID", func(t *testing.T) {
+	t.Run("it should throw an error when call endpoint with wrong book ID", func(t *testing.T) {
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
