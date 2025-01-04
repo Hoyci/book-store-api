@@ -19,8 +19,8 @@ func NewUserStore(db *sql.DB) *UserStore {
 	return &UserStore{db: db}
 }
 
-func (s *UserStore) Create(ctx context.Context, newUser types.CreateUserDatabasePayload) (*types.User, error) {
-	user := &types.User{}
+func (s *UserStore) Create(ctx context.Context, newUser types.CreateUserDatabasePayload) (*types.UserResponse, error) {
+	user := &types.UserResponse{}
 
 	err := s.db.QueryRowContext(
 		ctx,

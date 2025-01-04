@@ -25,9 +25,9 @@ type MockUserStore struct {
 	mock.Mock
 }
 
-func (m *MockUserStore) Create(ctx context.Context, user types.CreateUserDatabasePayload) (*types.User, error) {
+func (m *MockUserStore) Create(ctx context.Context, user types.CreateUserDatabasePayload) (*types.UserResponse, error) {
 	args := m.Called(ctx, user)
-	return args.Get(0).(*types.User), args.Error(1)
+	return args.Get(0).(*types.UserResponse), args.Error(1)
 }
 
 func (m *MockUserStore) GetByID(ctx context.Context, id int) (*types.UserResponse, error) {
@@ -180,7 +180,7 @@ func TestHandleCreateUser(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		mockUserStore.On("Create", mock.Anything, mock.Anything).Return((*types.User)(nil), fmt.Errorf("failed to insert entity 'user': database error"))
+		mockUserStore.On("Create", mock.Anything, mock.Anything).Return((*types.UserResponse)(nil), fmt.Errorf("failed to insert entity 'user': database error"))
 
 		payload := types.CreateUserRequestPayload{
 			Username:        "JohnDoe",
@@ -210,7 +210,7 @@ func TestHandleCreateUser(t *testing.T) {
 		defer ts.Close()
 
 		mockUserStore.On("Create", mock.Anything, mock.Anything).Return(
-			&types.User{
+			&types.UserResponse{
 				ID:        1,
 				Username:  "JohnDoe",
 				Email:     "johndoe@email.com",
