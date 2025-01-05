@@ -78,7 +78,7 @@ func TestHandleCreateBook(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":"body is not a valid json"}`
+		expectedResponse := `{"error":"Body is not a valid json"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -143,7 +143,7 @@ func TestHandleCreateBook(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
 
 		responseBody, _ := io.ReadAll(res.Body)
-		expected := `{"error":"failed to insert entity 'book': database error"}`
+		expected := `{"error":"An unexpected error occurred"}`
 		assert.JSONEq(t, expected, string(responseBody))
 	})
 
@@ -228,7 +228,7 @@ func TestHandleGetBookByID(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":"book ID must be a positive integer"}`
+		expectedResponse := `{"error":"Book ID must be a positive integer"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -326,7 +326,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":"book ID must be a positive integer"}`
+		expectedResponse := `{"error":"Book ID must be a positive integer"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -351,7 +351,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":"no fields provided for update"}`
+		expectedResponse := `{"error":"At least one field must be provided for update"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -480,7 +480,7 @@ func TestHandleDeleteBookByID(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":"book ID must be a positive integer"}`
+		expectedResponse := `{"error":"Book ID must be a positive integer"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 

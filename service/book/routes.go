@@ -24,7 +24,7 @@ func NewBookHandler(bookStore types.BookStore) *BookHandler {
 func (h *BookHandler) HandleCreateBook(w http.ResponseWriter, r *http.Request) {
 	var payload types.CreateBookPayload
 	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "body is not a valid json")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateBook", "User sent request with an invalid JSON", "Body is not a valid json")
 		return
 	}
 
@@ -34,13 +34,13 @@ func (h *BookHandler) HandleCreateBook(w http.ResponseWriter, r *http.Request) {
 			errorMessages = append(errorMessages, fmt.Sprintf("Field '%s' is invalid: %s", e.Field(), e.Tag()))
 		}
 
-		utils.WriteError(w, http.StatusBadRequest, errorMessages)
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateBook", "User sent a request containing JSON with information outside the permitted format", errorMessages)
 		return
 	}
 
 	id, err := h.bookStore.Create(r.Context(), payload)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err.Error())
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateBook", "Failed to insert book into database", "An unexpected error occurred")
 		return
 	}
 
@@ -53,13 +53,13 @@ func (h *BookHandler) HandleGetBookByID(w http.ResponseWriter, r *http.Request) 
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, "book ID must be a positive integer")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleGetBookByID", "User sent request with an invalid ID", "Book ID must be a positive integer")
 		return
 	}
 
 	book, err := h.bookStore.GetByID(r.Context(), id)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err.Error())
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBookByID", "Failed to get user by id from database", "An unexpected error occurred")
 		return
 	}
 
@@ -72,13 +72,24 @@ func (h *BookHandler) HandleUpdateBookByID(w http.ResponseWriter, r *http.Reques
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, "book ID must be a positive integer")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateBookByID", "User sent request with an invalid ID", "Book ID must be a positive integer")
 		return
 	}
 
 	var payload types.UpdateBookPayload
 	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, "body is not a valid json")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateBookByID", "User sent request with an invalid JSON", "Body is not a valid json")
+		return
+	}
+
+	if payload.Name == nil &&
+		payload.Description == nil &&
+		payload.Author == nil &&
+		payload.Genres == nil &&
+		payload.ReleaseYear == nil &&
+		payload.NumberOfPages == nil &&
+		payload.ImageUrl == nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user sent a request missing mandatory data"), "HandleUpdateBookByID", "User sent a request missing mandatory data", "At least one field must be provided for update")
 		return
 	}
 
@@ -88,19 +99,13 @@ func (h *BookHandler) HandleUpdateBookByID(w http.ResponseWriter, r *http.Reques
 			errorMessages = append(errorMessages, fmt.Sprintf("Field validation for '%s' failed on the '%s' tag", e.Field(), e.Tag()))
 		}
 
-		utils.WriteError(w, http.StatusBadRequest, errorMessages)
-		return
-	}
-
-	if payload.Name == nil && payload.Description == nil && payload.Author == nil &&
-		payload.Genres == nil && payload.ReleaseYear == nil && payload.NumberOfPages == nil && payload.ImageUrl == nil {
-		utils.WriteError(w, http.StatusBadRequest, "no fields provided for update")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateBookByID", "User sent a request with JSON outside the permitted format", errorMessages)
 		return
 	}
 
 	book, err := h.bookStore.UpdateByID(r.Context(), id, payload)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err.Error())
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateBookByID", "Failed to update book by id in database", "An unexpected error occurred")
 		return
 	}
 
@@ -113,13 +118,13 @@ func (h *BookHandler) HandleDeleteBookByID(w http.ResponseWriter, r *http.Reques
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, "book ID must be a positive integer")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleDeleteBookByID", "User sent request with an invalid ID", "Book ID must be a positive integer")
 		return
 	}
 
 	returnedID, err := h.bookStore.DeleteByID(r.Context(), id)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err.Error())
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteBookByID", "Failed to delete user by id from database", "An unexpected error occurred")
 		return
 	}
 

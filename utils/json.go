@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/sirupsen/logrus"
 )
 
 func ParseJSON(r *http.Request, payload any) error {
@@ -20,12 +22,27 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	return json.NewEncoder(w).Encode(v)
 }
 
-func WriteError(w http.ResponseWriter, status int, err any) {
+// func WriteError(w http.ResponseWriter, status int, err any) {
+// 	WriteJSON(
+// 		w,
+// 		status,
+// 		map[string]any{
+// 			"error": err,
+// 		},
+// 	)
+// }
+
+func WriteError(w http.ResponseWriter, status int, err error, context string, errorMessage string, clientErrorMessage any) {
+	Log.WithFields(logrus.Fields{
+		"error":   err.Error(),
+		"context": context,
+	}).Error(errorMessage)
+
 	WriteJSON(
 		w,
 		status,
 		map[string]any{
-			"error": err,
+			"error": clientErrorMessage,
 		},
 	)
 }
