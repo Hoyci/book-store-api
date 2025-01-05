@@ -33,6 +33,7 @@ func main() {
 	http.ListenAndServe(path, apiServer.Router)
 }
 
-// TODO: Remove all err.Error() from internalServerError to prevent user to see what is happening under the hood.
-// TODO: Adicionar um logger para exibir mensagens de erro com maior clareza
+// TODO: Adicionar endpoint de refresh token
 // TODO: Adicionar swagger para documentar a API
+
+// TODO:  Deve ser possível que o usuário atribua um livro a ele (Criar um projeto tipo o Skoob)

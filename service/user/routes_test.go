@@ -79,7 +79,7 @@ func TestHandleCreateUser(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":"body is not a valid json"}`
+		expectedResponse := `{"error":"Body is not a valid json"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -201,7 +201,7 @@ func TestHandleCreateUser(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
 
 		responseBody, _ := io.ReadAll(res.Body)
-		expected := `{"error":"failed to insert entity 'user': database error"}`
+		expected := `{"error":"An unexpected error occurred"}`
 		assert.JSONEq(t, expected, string(responseBody))
 	})
 
@@ -310,7 +310,7 @@ func TestHandleGetUserById(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":"user ID must be a positive integer"}`
+		expectedResponse := `{"error":"User ID must be a positive integer"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -398,7 +398,7 @@ func TestHandleUpdateUserById(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":"user ID must be a positive integer"}`
+		expectedResponse := `{"error":"User ID must be a positive integer"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -543,15 +543,15 @@ func TestHandleDeleteBookByID(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":"book ID must be a positive integer"}`
+		expectedResponse := `{"error":"Book ID must be a positive integer"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
 	t.Run("it should return succssefully status and body when call endpoint with valid body", func(t *testing.T) {
-		mockBookStore, ts, router, _ := setupTestServer()
+		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(int(1), nil)
+		mockUserStore.On("DeleteByID", mock.Anything, mock.Anything).Return(int(1), nil)
 
 		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/user/1", nil)
 		w := httptest.NewRecorder()

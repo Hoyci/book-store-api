@@ -9,6 +9,7 @@ import (
 	"github.com/hoyci/book-store-api/service/book"
 	"github.com/hoyci/book-store-api/service/healthcheck"
 	"github.com/hoyci/book-store-api/service/user"
+	"github.com/hoyci/book-store-api/utils"
 )
 
 type APIServer struct {
@@ -32,7 +33,11 @@ func (s *APIServer) SetupRouter(
 	bookHandler *book.BookHandler,
 	userHandler *user.UserHandler,
 ) *mux.Router {
+	utils.InitLogger()
 	router := mux.NewRouter()
+
+	router.Use(utils.LoggingMiddleware)
+
 	subrouter := router.PathPrefix("/api/v1").Subrouter()
 
 	subrouter.HandleFunc("/healthcheck", healthCheckHandler.HandleHealthCheck).Methods(http.MethodGet)

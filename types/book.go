@@ -27,13 +27,13 @@ type Book struct {
 }
 
 type CreateBookPayload struct {
-	Name          string   `json:"name" validate:"required"`
-	Description   string   `json:"description" validate:"required"`
-	Author        string   `json:"author" validate:"required"`
-	Genres        []string `json:"genres" validate:"required"`
-	ReleaseYear   int      `json:"releaseYear" validate:"required"`
-	NumberOfPages int      `json:"numberOfPages" validate:"required"`
-	ImageUrl      string   `json:"imageUrl" validate:"required"`
+	Name          string   `json:"name" validate:"required,min=3"`
+	Description   string   `json:"description" validate:"required,min=5"`
+	Author        string   `json:"author" validate:"required,min=3"`
+	Genres        []string `json:"genres" validate:"required,dive,min=1"`
+	ReleaseYear   int      `json:"releaseYear" validate:"required,gte=1500,lte=2099"`
+	NumberOfPages int      `json:"numberOfPages" validate:"required,gte=1"`
+	ImageUrl      string   `json:"imageUrl" validate:"required,url"`
 }
 
 type UpdateBookPayload struct {
