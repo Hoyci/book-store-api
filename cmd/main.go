@@ -35,5 +35,5 @@ func main() {
 
 // TODO: Adicionar endpoint de refresh token
 // TODO: Adicionar swagger para documentar a API
-
-// TODO:  Deve ser possível que o usuário atribua um livro a ele (Criar um projeto tipo o Skoob)
+// TODO: Adicionar restrição nos endpoints de usuários e books (somente o proprio usuário pode alterar e deletar suas informações) / (somente o proprio usuário pode alterar e deletar informações dos seus livros)
+// TODO: Deve ser possível que o usuário atribua um livro a ele (Criar um projeto tipo o Skoob)

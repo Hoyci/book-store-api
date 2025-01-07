@@ -351,7 +351,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":"At least one field must be provided for update"}`
+		expectedResponse := `{"error":["Field validation for 'UpdateBookPayload' failed on the 'atleastonefield' tag"]}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 

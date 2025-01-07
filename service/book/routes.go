@@ -13,11 +13,27 @@ import (
 
 var validate = validator.New()
 
+func updateBookPayloadStructLevelValidation(sl validator.StructLevel) {
+	payload := sl.Current().Interface().(types.UpdateBookPayload)
+
+	if payload.Name == nil &&
+		payload.Description == nil &&
+		payload.Author == nil &&
+		payload.Genres == nil &&
+		payload.ReleaseYear == nil &&
+		payload.NumberOfPages == nil &&
+		payload.ImageUrl == nil {
+		sl.ReportError(payload, "UpdateBookPayload", "", "atleastonefield", "")
+	}
+}
+
 type BookHandler struct {
 	bookStore types.BookStore
 }
 
 func NewBookHandler(bookStore types.BookStore) *BookHandler {
+	validate.RegisterStructValidation(updateBookPayloadStructLevelValidation, types.UpdateBookPayload{})
+
 	return &BookHandler{bookStore: bookStore}
 }
 
@@ -79,17 +95,6 @@ func (h *BookHandler) HandleUpdateBookByID(w http.ResponseWriter, r *http.Reques
 	var payload types.UpdateBookPayload
 	if err := utils.ParseJSON(r, &payload); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateBookByID", "User sent request with an invalid JSON", "Body is not a valid json")
-		return
-	}
-
-	if payload.Name == nil &&
-		payload.Description == nil &&
-		payload.Author == nil &&
-		payload.Genres == nil &&
-		payload.ReleaseYear == nil &&
-		payload.NumberOfPages == nil &&
-		payload.ImageUrl == nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user sent a request missing mandatory data"), "HandleUpdateBookByID", "User sent a request missing mandatory data", "At least one field must be provided for update")
 		return
 	}
 

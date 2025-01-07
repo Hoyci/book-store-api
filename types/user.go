@@ -45,6 +45,6 @@ type CreateUserDatabasePayload struct {
 }
 
 type UpdateUserPayload struct {
-	Username *string `json:"username" validate:"required,min=5"`
-	Email    *string `json:"email" validate:"required,email"`
+	Username *string `json:"username,omitempty" validate:"omitempty,min=5"`
+	Email    *string `json:"email,omitempty" validate:"omitempty,email"`
 }
