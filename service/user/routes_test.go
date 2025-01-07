@@ -425,7 +425,7 @@ func TestHandleUpdateUserById(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error": ["Field validation for 'Username' failed on the 'required' tag", "Field validation for 'Email' failed on the 'required' tag"]}`
+		expectedResponse := `{"error": ["Field validation for 'UpdateUserPayload' failed on the 'atleastonefield' tag"]}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 

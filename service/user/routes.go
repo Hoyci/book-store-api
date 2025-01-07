@@ -15,10 +15,19 @@ import (
 
 var validate = validator.New()
 
-func PasswordValidator(sl validator.StructLevel) {
+func passwordValidator(sl validator.StructLevel) {
 	data := sl.Current().Interface().(types.CreateUserRequestPayload)
 	if data.Password != data.ConfirmPassword {
 		sl.ReportError(data.ConfirmPassword, "ConfirmPassword", "ConfirmPassword", "password_mismatch", "")
+	}
+}
+
+func updateUserPayloadStructLevelValidation(sl validator.StructLevel) {
+	payload := sl.Current().Interface().(types.UpdateUserPayload)
+
+	if payload.Username == nil &&
+		payload.Email == nil {
+		sl.ReportError(payload, "UpdateUserPayload", "", "atleastonefield", "")
 	}
 }
 
@@ -27,7 +36,8 @@ type UserHandler struct {
 }
 
 func NewUserHandler(userStore types.UserStore) *UserHandler {
-	validate.RegisterStructValidation(PasswordValidator, types.CreateUserRequestPayload{})
+	validate.RegisterStructValidation(passwordValidator, types.CreateUserRequestPayload{})
+	validate.RegisterStructValidation(updateUserPayloadStructLevelValidation, types.UpdateUserPayload{})
 
 	return &UserHandler{userStore: userStore}
 }
@@ -93,7 +103,6 @@ func (h *UserHandler) HandleGetUserByID(w http.ResponseWriter, r *http.Request) 
 	utils.WriteJSON(w, http.StatusOK, user)
 }
 
-// TODO: Melhorar a validação dos campos que vem no JSON para que o usuário não possa burlar
 func (h *UserHandler) HandleUpdateUserByID(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	idStr := vars["id"]
