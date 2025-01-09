@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 type CustomClaims struct {
@@ -14,7 +15,9 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
-func CreateJWT(userID int, username, email string, secretKey string, expTimeInSeconds int64) (string, error) {
+func CreateJWT(userID int, username string, email string, secretKey string, expTimeInSeconds int64) (string, error) {
+	jti := uuid.New().String()
+
 	claims := CustomClaims{
 		UserID:   userID,
 		Username: username,
@@ -23,6 +26,7 @@ func CreateJWT(userID int, username, email string, secretKey string, expTimeInSe
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expTimeInSeconds) * time.Second)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "book-store-api",
+			ID:        jti,
 		},
 	}
 

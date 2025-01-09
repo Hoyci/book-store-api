@@ -136,6 +136,71 @@ func TestGetUserByID(t *testing.T) {
 	})
 }
 
+func TestGetUserByEmail(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	store := NewUserStore(db)
+	expectedCreatedAt := time.Date(0001, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	t.Run("database did not find any row", func(t *testing.T) {
+		mock.ExpectQuery("SELECT *").
+			WithArgs("johndoe@email.com").
+			WillReturnError(sql.ErrNoRows)
+
+		user, err := store.GetByEmail(context.Background(), "johndoe@email.com")
+
+		assert.Nil(t, user)
+		assert.Error(t, err)
+		assert.Equal(t, err.Error(), "no row found with email: 'johndoe@email.com'")
+
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+
+	t.Run("database unexpected error", func(t *testing.T) {
+		mock.ExpectQuery("SELECT *").
+			WithArgs("johndoe@email.com").
+			WillReturnError(fmt.Errorf("database connection error"))
+
+		user, err := store.GetByEmail(context.Background(), "johndoe@email.com")
+
+		assert.Error(t, err)
+		assert.Zero(t, user)
+		assert.Contains(t, err.Error(), "unexpected error getting user with email: 'johndoe@email.com'")
+
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+
+	t.Run("successfully get user by ID", func(t *testing.T) {
+		mock.ExpectQuery("SELECT \\* FROM users WHERE email = \\$1 AND deleted_at IS null").
+			WithArgs("johndoe@email.com").
+			WillReturnRows(sqlmock.NewRows([]string{"id", "username", "email", "created_at", "updated_at", "deleted_at"}).
+				AddRow(1, "johndoe", "johndoe@email.com", expectedCreatedAt, nil, nil))
+
+		expectedID := 1
+
+		user, err := store.GetByEmail(context.Background(), "johndoe@email.com")
+
+		assert.NoError(t, err)
+		assert.NotNil(t, user)
+		assert.Equal(t, expectedID, user.ID)
+		assert.Equal(t, "johndoe", user.Username)
+		assert.Equal(t, "johndoe@email.com", user.Email)
+		assert.Equal(t, expectedCreatedAt, user.CreatedAt)
+
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+}
+
 func TestUpdateBook(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {

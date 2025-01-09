@@ -66,6 +66,30 @@ func (s *UserStore) GetByID(ctx context.Context, id int) (*types.UserResponse, e
 	return user, nil
 }
 
+func (s *UserStore) GetByEmail(ctx context.Context, email string) (*types.UserResponse, error) {
+	fmt.Println(email)
+	user := &types.UserResponse{}
+
+	err := s.db.QueryRowContext(ctx, "SELECT * FROM users WHERE email = $1 AND deleted_at IS null", email).
+		Scan(
+			&user.ID,
+			&user.Username,
+			&user.Email,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+			&user.DeletedAt,
+		)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("no row found with email: '%s'", email)
+		}
+		fmt.Println(err)
+		return nil, fmt.Errorf("unexpected error getting user with email: '%s'", email)
+	}
+
+	return user, nil
+}
+
 func (s *UserStore) UpdateByID(ctx context.Context, id int, newUser types.UpdateUserPayload) (*types.UserResponse, error) {
 	query := fmt.Sprintf("UPDATE users SET updated_at = '%s', ", time.Now().Format("2006-01-02 15:04:05"))
 	args := []any{}

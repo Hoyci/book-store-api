@@ -7,10 +7,8 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
-	"github.com/hoyci/book-store-api/config"
 	"github.com/hoyci/book-store-api/types"
 	"github.com/hoyci/book-store-api/utils"
-	"github.com/sirupsen/logrus"
 )
 
 var validate = validator.New()
@@ -70,18 +68,13 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		PasswordHash: hashedPassword,
 	}
 
-	newUser, err := h.userStore.Create(r.Context(), databasePayload)
+	_, err = h.userStore.Create(r.Context(), databasePayload)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateUser", "Failed to insert user into database", "An unexpected error occurred")
 		return
 	}
 
-	token, err := utils.CreateJWT(newUser.ID, newUser.Username, newUser.Email, config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds)
-	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateUser", "An error occured during the create JWT process", "An unexpected error occurred")
-	}
-
-	utils.WriteJSON(w, http.StatusCreated, map[string]string{"token": token})
+	utils.WriteJSON(w, http.StatusCreated, map[string]string{"message": "User successfully created"})
 }
 
 func (h *UserHandler) HandleGetUserByID(w http.ResponseWriter, r *http.Request) {
@@ -131,10 +124,6 @@ func (h *UserHandler) HandleUpdateUserByID(w http.ResponseWriter, r *http.Reques
 
 	user, err := h.userStore.UpdateByID(r.Context(), id, payload)
 	if err != nil {
-		utils.Log.WithFields(logrus.Fields{
-			"error":   err.Error(),
-			"context": "HandleUpdateUserByID",
-		}).Error()
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateUserByID", "Failed to update user by id in database", "An unexpected error occurred")
 		return
 	}
