@@ -35,6 +35,11 @@ func (m *MockUserStore) GetByID(ctx context.Context, id int) (*types.UserRespons
 	return args.Get(0).(*types.UserResponse), args.Error(1)
 }
 
+func (m *MockUserStore) GetByEmail(ctx context.Context, email string) (*types.UserResponse, error) {
+	args := m.Called(ctx, email)
+	return args.Get(0).(*types.UserResponse), args.Error(1)
+}
+
 func (m *MockUserStore) UpdateByID(ctx context.Context, id int, newUser types.UpdateUserPayload) (*types.UserResponse, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(*types.UserResponse), args.Error(1)
@@ -53,7 +58,7 @@ func TestHandleCreateUser(t *testing.T) {
 		mockUserStore := new(MockUserStore)
 		mockUserHandler := user.NewUserHandler(mockUserStore)
 		apiServer := api.NewApiServer(":8080", nil)
-		router := apiServer.SetupRouter(nil, nil, mockUserHandler)
+		router := apiServer.SetupRouter(nil, nil, mockUserHandler, nil)
 		ts := httptest.NewServer(router)
 		return mockUserStore, ts, router, apiServer.Config
 	}
@@ -87,12 +92,7 @@ func TestHandleCreateUser(t *testing.T) {
 		_, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		payload := types.CreateUserRequestPayload{
-			// Username:        "JohnDoe",
-			// Email:           "johndoe@email.com",
-			// Password:        "123mudar",
-			// ConfirmPassword: "123mudar",
-		}
+		payload := types.CreateUserRequestPayload{}
 		marshalled, _ := json.Marshal(payload)
 
 		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/user", bytes.NewBuffer(marshalled))
@@ -205,8 +205,8 @@ func TestHandleCreateUser(t *testing.T) {
 		assert.JSONEq(t, expected, string(responseBody))
 	})
 
-	t.Run("it should successfully create a user and return a valida JWT Token", func(t *testing.T) {
-		mockUserStore, ts, router, config := setupTestServer()
+	t.Run("it should successfully create a user", func(t *testing.T) {
+		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
 		mockUserStore.On("Create", mock.Anything, mock.Anything).Return(
@@ -250,19 +250,11 @@ func TestHandleCreateUser(t *testing.T) {
 			t.Fatalf("Failed to unmarshal response body: %v", err)
 		}
 
-		tokenString, ok := responseMap["token"].(string)
+		responseMessage, ok := responseMap["message"].(string)
 		if !ok {
 			t.Fatalf("Token not found or not a string")
 		}
-
-		claims, err := utils.VerifyJWT(tokenString, config.JWTSecret)
-		assert.NoError(t, err, "Failed to verify JWT token")
-
-		t.Log(claims)
-
-		assert.Equal(t, "johndoe@email.com", claims.Email, "Email claim mismatch")
-		assert.Equal(t, "JohnDoe", claims.Username, "Username claim mismatch")
-		assert.Equal(t, 1, claims.UserID, "UserID claim mismatch")
+		assert.Equal(t, "User successfully created", responseMessage)
 	})
 }
 
@@ -271,7 +263,7 @@ func TestHandleGetUserById(t *testing.T) {
 		mockUserStore := new(MockUserStore)
 		mockUserHandler := user.NewUserHandler(mockUserStore)
 		apiServer := api.NewApiServer(":8080", nil)
-		router := apiServer.SetupRouter(nil, nil, mockUserHandler)
+		router := apiServer.SetupRouter(nil, nil, mockUserHandler, nil)
 		ts := httptest.NewServer(router)
 		return mockUserStore, ts, router, apiServer.Config
 	}
@@ -359,7 +351,7 @@ func TestHandleUpdateUserById(t *testing.T) {
 		mockUserStore := new(MockUserStore)
 		mockUserHandler := user.NewUserHandler(mockUserStore)
 		apiServer := api.NewApiServer(":8080", nil)
-		router := apiServer.SetupRouter(nil, nil, mockUserHandler)
+		router := apiServer.SetupRouter(nil, nil, mockUserHandler, nil)
 		ts := httptest.NewServer(router)
 		return mockUserStore, ts, router, apiServer.Config
 	}
@@ -504,7 +496,7 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		mockUserStore := new(MockUserStore)
 		mockUserHandler := user.NewUserHandler(mockUserStore)
 		apiServer := api.NewApiServer(":8080", nil)
-		router := apiServer.SetupRouter(nil, nil, mockUserHandler)
+		router := apiServer.SetupRouter(nil, nil, mockUserHandler, nil)
 		ts := httptest.NewServer(router)
 		return mockUserStore, ts, router, apiServer.Config
 	}

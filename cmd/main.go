@@ -8,9 +8,11 @@ import (
 	"github.com/hoyci/book-store-api/cmd/api"
 	"github.com/hoyci/book-store-api/config"
 	"github.com/hoyci/book-store-api/db"
+	"github.com/hoyci/book-store-api/service/auth"
 	"github.com/hoyci/book-store-api/service/book"
 	"github.com/hoyci/book-store-api/service/healthcheck"
 	"github.com/hoyci/book-store-api/service/user"
+	"github.com/hoyci/book-store-api/utils"
 )
 
 func main() {
@@ -27,13 +29,22 @@ func main() {
 	userStore := user.NewUserStore(db)
 	userHandler := user.NewUserHandler(userStore)
 
-	apiServer.SetupRouter(healthCheckHandler, bookHandler, userHandler)
+	authStore := auth.NewAuthStore(db)
+
+	uuidGen := &utils.UUIDGeneratorUtil{}
+
+	authHandler := auth.NewAuthHandler(userStore, authStore, uuidGen)
+
+	apiServer.SetupRouter(healthCheckHandler, bookHandler, userHandler, authHandler)
 
 	log.Println("Listening on:", path)
 	http.ListenAndServe(path, apiServer.Router)
 }
 
-// TODO: Adicionar endpoint de refresh token
+// TODO: Rodar o projeto e testar todos os endpoints
+// TODO: Adicionar os endpoints privados
+// TODO: Criar struct de response para os endpoints
+// TODO: remover todos os fmt.Errorf das funções que interagem com o banco de dados e adicionar logrus
 // TODO: Adicionar swagger para documentar a API
 // TODO: Adicionar restrição nos endpoints de usuários e books (somente o proprio usuário pode alterar e deletar suas informações) / (somente o proprio usuário pode alterar e deletar informações dos seus livros)
 // TODO: Deve ser possível que o usuário atribua um livro a ele (Criar um projeto tipo o Skoob)

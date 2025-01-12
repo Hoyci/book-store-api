@@ -5,16 +5,20 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/hoyci/book-store-api/types"
 )
 
 type CustomClaims struct {
+	ID       string `json:"id"`
 	UserID   int    `json:"userId"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	jwt.RegisteredClaims
 }
 
-func CreateJWT(userID int, username, email string, secretKey string, expTimeInSeconds int64) (string, error) {
+func CreateJWT(userID int, username string, email string, secretKey string, expTimeInSeconds int64, uuidGen types.UUIDGenerator) (string, error) {
+	jti := uuidGen.New()
+
 	claims := CustomClaims{
 		UserID:   userID,
 		Username: username,
@@ -23,6 +27,7 @@ func CreateJWT(userID int, username, email string, secretKey string, expTimeInSe
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Duration(expTimeInSeconds) * time.Second)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			Issuer:    "book-store-api",
+			ID:        jti,
 		},
 	}
 

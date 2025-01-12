@@ -52,7 +52,7 @@ func TestHandleCreateBook(t *testing.T) {
 		mockBookStore := new(MockBookStore)
 		mockBookHandler := book.NewBookHandler(mockBookStore)
 		apiServer := api.NewApiServer(":8080", nil)
-		router := apiServer.SetupRouter(nil, mockBookHandler, nil)
+		router := apiServer.SetupRouter(nil, mockBookHandler, nil, nil)
 		ts := httptest.NewServer(router)
 		return mockBookStore, ts, router
 	}
@@ -189,7 +189,7 @@ func TestHandleGetBookByID(t *testing.T) {
 		mockBookStore := new(MockBookStore)
 		mockBookHandler := book.NewBookHandler(mockBookStore)
 		apiServer := api.NewApiServer(":8080", nil)
-		router := apiServer.SetupRouter(nil, mockBookHandler, nil)
+		router := apiServer.SetupRouter(nil, mockBookHandler, nil, nil)
 		ts := httptest.NewServer(router)
 		return mockBookStore, ts, router
 	}
@@ -287,7 +287,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		mockBookStore := new(MockBookStore)
 		mockBookHandler := book.NewBookHandler(mockBookStore)
 		apiServer := api.NewApiServer(":8080", nil)
-		router := apiServer.SetupRouter(nil, mockBookHandler, nil)
+		router := apiServer.SetupRouter(nil, mockBookHandler, nil, nil)
 		ts := httptest.NewServer(router)
 		return mockBookStore, ts, router
 	}
@@ -441,7 +441,7 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		mockBookStore := new(MockBookStore)
 		mockBookHandler := book.NewBookHandler(mockBookStore)
 		apiServer := api.NewApiServer(":8080", nil)
-		router := apiServer.SetupRouter(nil, mockBookHandler, nil)
+		router := apiServer.SetupRouter(nil, mockBookHandler, nil, nil)
 		ts := httptest.NewServer(router)
 		return mockBookStore, ts, router
 	}

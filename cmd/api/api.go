@@ -6,6 +6,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/config"
+	"github.com/hoyci/book-store-api/service/auth"
 	"github.com/hoyci/book-store-api/service/book"
 	"github.com/hoyci/book-store-api/service/healthcheck"
 	"github.com/hoyci/book-store-api/service/user"
@@ -32,6 +33,7 @@ func (s *APIServer) SetupRouter(
 	healthCheckHandler *healthcheck.HealthCheckHandler,
 	bookHandler *book.BookHandler,
 	userHandler *user.UserHandler,
+	authHandler *auth.AuthHandler,
 ) *mux.Router {
 	utils.InitLogger()
 	router := mux.NewRouter()
@@ -41,6 +43,9 @@ func (s *APIServer) SetupRouter(
 	subrouter := router.PathPrefix("/api/v1").Subrouter()
 
 	subrouter.HandleFunc("/healthcheck", healthCheckHandler.HandleHealthCheck).Methods(http.MethodGet)
+
+	subrouter.HandleFunc("/auth", authHandler.HandleUserLogin).Methods(http.MethodPost)
+	subrouter.HandleFunc("/auth/refresh", authHandler.HandleRefreshToken).Methods(http.MethodPost)
 
 	subrouter.HandleFunc("/book", bookHandler.HandleCreateBook).Methods(http.MethodPost)
 	subrouter.HandleFunc("/book/{id}", bookHandler.HandleGetBookByID).Methods(http.MethodGet)
