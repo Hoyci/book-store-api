@@ -15,12 +15,18 @@ var validate = validator.New()
 type AuthHandler struct {
 	userStore types.UserStore
 	authStore types.AuthStore
+	UUIDGen   types.UUIDGenerator
 }
 
-func NewAuthHandler(userStore types.UserStore, authStore types.AuthStore) *AuthHandler {
+func NewAuthHandler(
+	userStore types.UserStore,
+	authStore types.AuthStore,
+	UUIDGen types.UUIDGenerator,
+) *AuthHandler {
 	return &AuthHandler{
 		userStore: userStore,
 		authStore: authStore,
+		UUIDGen:   UUIDGen,
 	}
 }
 
@@ -48,12 +54,12 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := utils.CreateJWT(user.ID, user.Username, user.Email, config.Envs.JWTSecret, 3600)
+	accessToken, err := utils.CreateJWT(user.ID, user.Username, user.Email, config.Envs.JWTSecret, 3600, h.UUIDGen)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
 	}
 
-	refreshToken, err := utils.CreateJWT(user.ID, "", "", config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds)
+	refreshToken, err := utils.CreateJWT(user.ID, "", "", config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds, h.UUIDGen)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
 	}
@@ -61,7 +67,6 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 	utils.WriteJSON(w, http.StatusOK, map[string]string{"access_token": accessToken, "refresh_token": refreshToken})
 }
 
-// TODO: Adicionar rotação de refresh token
 func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request) {
 	var requestPayload types.RefreshTokenPayload
 
@@ -81,23 +86,30 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	}
 
 	claims, err := utils.VerifyJWT(requestPayload.AccessToken, config.Envs.JWTSecret)
+	fmt.Printf("Claims: %+v, Error: %v\n", claims, err)
 	if err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err, "HandleRefreshToken", "User sent an invalid or expired refresh token", "Refresh token is invalid or has been expired")
 		return
 	}
 
 	storedToken, err := h.authStore.GetRefreshTokenByUserID(r.Context(), claims.UserID)
-	if err != nil || storedToken.Jti != claims.ID {
-		utils.WriteError(w, http.StatusUnauthorized, err, "HandleRefreshToken", "Invalid or revoked refresh token", "Unauthorized")
+	fmt.Printf("storedToken: %+v, Error: %v\n", storedToken, err)
+	if err != nil {
+		utils.WriteError(w, http.StatusUnauthorized, err, "HandleRefreshToken", "Failed get refresh token by user ID from database", "Unauthorized")
 		return
 	}
 
-	newAccessToken, err := utils.CreateJWT(claims.UserID, claims.Username, claims.Email, config.Envs.JWTSecret, 3600)
+	if storedToken.Jti != claims.RegisteredClaims.ID {
+		utils.WriteError(w, http.StatusUnauthorized, fmt.Errorf("stored JTI does not match the claims ID"), "HandleRefreshToken", "Stored JTI does not match the claims ID", "Unauthorized")
+		return
+	}
+
+	newAccessToken, err := utils.CreateJWT(claims.UserID, claims.Username, claims.Email, config.Envs.JWTSecret, 3600, h.UUIDGen)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
 	}
 
-	newRefreshToken, err := utils.CreateJWT(claims.UserID, "", "", config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds)
+	newRefreshToken, err := utils.CreateJWT(claims.UserID, "", "", config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds, h.UUIDGen)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
 	}

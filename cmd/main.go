@@ -12,6 +12,7 @@ import (
 	"github.com/hoyci/book-store-api/service/book"
 	"github.com/hoyci/book-store-api/service/healthcheck"
 	"github.com/hoyci/book-store-api/service/user"
+	"github.com/hoyci/book-store-api/utils"
 )
 
 func main() {
@@ -30,7 +31,9 @@ func main() {
 
 	authStore := auth.NewAuthStore(db)
 
-	authHandler := auth.NewAuthHandler(userStore, authStore)
+	uuidGen := &utils.UUIDGeneratorUtil{}
+
+	authHandler := auth.NewAuthHandler(userStore, authStore, uuidGen)
 
 	apiServer.SetupRouter(healthCheckHandler, bookHandler, userHandler, authHandler)
 
@@ -38,6 +41,7 @@ func main() {
 	http.ListenAndServe(path, apiServer.Router)
 }
 
+// TODO: Criar struct de response para os endpoints
 // TODO: remover todos os fmt.Errorf das funções que interagem com o banco de dados e adicionar logrus
 // TODO: Adicionar endpoint de refresh token
 // TODO: Adicionar swagger para documentar a API
