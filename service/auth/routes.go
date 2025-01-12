@@ -102,12 +102,18 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
 	}
 
+	newRefreshTokenClaims, err := utils.VerifyJWT(newRefreshToken, config.Envs.JWTSecret)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "Failed to parse the new refresh token", "An unexpected error occurred")
+		return
+	}
+
 	err = h.authStore.UpdateRefreshTokenByUserID(
 		r.Context(),
 		types.UpdateRefreshTokenPayload{
-			UserID:    claims.UserID,
-			Jti:       newRefreshToken, // Falta descobrir como eu pego o JTI do novo token
-			ExpiresAt: newRefreshToken, // Falta descobrir como eu pego o expires_at do novo token
+			UserID:    newRefreshTokenClaims.UserID,
+			Jti:       newRefreshTokenClaims.ID,
+			ExpiresAt: newRefreshTokenClaims.RegisteredClaims.ExpiresAt.Time,
 		})
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleRefreshToken", "Failed to update refresh token", "Internal Server Error")

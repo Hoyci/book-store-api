@@ -37,7 +37,7 @@ func (s *AuthStore) GetRefreshTokenByUserID(ctx context.Context, userID int) (*t
 	return token, nil
 }
 
-func (s *AuthStore) UpdateRefreshTokenByUserID(ctx context.Context, payload types.UpdateRefreshTokenPayload) (*types.RefreshToken, error) {
+func (s *AuthStore) UpdateRefreshTokenByUserID(ctx context.Context, payload types.UpdateRefreshTokenPayload) error {
 	token := &types.RefreshToken{}
 
 	err := s.db.QueryRowContext(
@@ -58,10 +58,10 @@ func (s *AuthStore) UpdateRefreshTokenByUserID(ctx context.Context, payload type
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no row found with user_id: '%d'", payload.UserID)
+			return fmt.Errorf("no row found with user_id: '%d'", payload.UserID)
 		}
-		return nil, fmt.Errorf("unexpected error updating refresh_token with user_id: '%d': %v", payload.UserID, err)
+		return fmt.Errorf("unexpected error updating refresh_token with user_id: '%d': %v", payload.UserID, err)
 	}
 
-	return token, nil
+	return nil
 }

@@ -91,9 +91,8 @@ func TestUpdateRefreshTokenByUserID(t *testing.T) {
 			WithArgs(payload.UserID, payload.Jti, payload.ExpiresAt).
 			WillReturnError(sql.ErrNoRows)
 
-		refreshToken, err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
+		err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
 
-		assert.Nil(t, refreshToken)
 		assert.Error(t, err)
 		assert.Equal(t, err.Error(), "no row found with user_id: '1'")
 
@@ -107,9 +106,8 @@ func TestUpdateRefreshTokenByUserID(t *testing.T) {
 			WithArgs(payload.UserID, payload.Jti, payload.ExpiresAt).
 			WillReturnError(sql.ErrNoRows)
 
-		refreshToken, err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
+		err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
 
-		assert.Nil(t, refreshToken)
 		assert.Error(t, err)
 		assert.Equal(t, err.Error(), "no row found with user_id: '1'")
 
@@ -123,9 +121,8 @@ func TestUpdateRefreshTokenByUserID(t *testing.T) {
 			WithArgs(payload.UserID, payload.Jti, payload.ExpiresAt).
 			WillReturnError(fmt.Errorf("database connection error"))
 
-		refreshToken, err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
+		err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
 
-		assert.Nil(t, refreshToken)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unexpected error updating refresh_token with user_id: '1'")
 
@@ -140,14 +137,9 @@ func TestUpdateRefreshTokenByUserID(t *testing.T) {
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "jti", "created_at", "expires_at"}).
 				AddRow(1, payload.UserID, payload.Jti, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), payload.ExpiresAt))
 
-		refreshToken, err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
+		err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
 
 		assert.NoError(t, err)
-		assert.NotNil(t, refreshToken)
-		assert.Equal(t, 1, refreshToken.ID)
-		assert.Equal(t, payload.UserID, refreshToken.UserID)
-		assert.Equal(t, payload.Jti, refreshToken.Jti)
-		assert.Equal(t, payload.ExpiresAt, refreshToken.ExpiresAt)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)

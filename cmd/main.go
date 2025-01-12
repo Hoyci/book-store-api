@@ -28,7 +28,9 @@ func main() {
 	userStore := user.NewUserStore(db)
 	userHandler := user.NewUserHandler(userStore)
 
-	authHandler := auth.NewAuthHandler(userStore)
+	authStore := auth.NewAuthStore(db)
+
+	authHandler := auth.NewAuthHandler(userStore, authStore)
 
 	apiServer.SetupRouter(healthCheckHandler, bookHandler, userHandler, authHandler)
 

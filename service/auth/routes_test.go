@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/cmd/api"
 	"github.com/hoyci/book-store-api/config"
@@ -20,6 +21,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+type MockAuthStore struct {
+	mock.Mock
+}
+
+func (m *MockAuthStore) GetRefreshTokenByUserID(ctx context.Context, userID int) (*types.RefreshToken, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).(*types.RefreshToken), args.Error(1)
+}
+
+func (m *MockAuthStore) UpdateRefreshTokenByUserID(ctx context.Context, payload types.UpdateRefreshTokenPayload) error {
+	args := m.Called(ctx, payload)
+	return args.Error(0)
+}
 
 type MockUserStore struct {
 	mock.Mock
@@ -56,7 +71,7 @@ func (m *MockUserStore) DeleteByID(ctx context.Context, id int) (int, error) {
 func TestHandleUserLogin(t *testing.T) {
 	setupTestServer := func() (*MockUserStore, *httptest.Server, *mux.Router, config.Config) {
 		mockUserStore := new(MockUserStore)
-		mockAuthHandler := auth.NewAuthHandler(mockUserStore)
+		mockAuthHandler := auth.NewAuthHandler(mockUserStore, nil)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, nil, nil, mockAuthHandler)
 		ts := httptest.NewServer(router)
@@ -268,8 +283,9 @@ func TestHandleUserLogin(t *testing.T) {
 
 func TestHandleRefreshToken(t *testing.T) {
 	setupTestServer := func() (*MockUserStore, *httptest.Server, *mux.Router, config.Config) {
+		// mockAuthStore := new(MockAuthStore)
 		mockUserStore := new(MockUserStore)
-		mockAuthHandler := auth.NewAuthHandler(mockUserStore)
+		mockAuthHandler := auth.NewAuthHandler(mockUserStore, nil)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, nil, nil, mockAuthHandler)
 		ts := httptest.NewServer(router)
@@ -356,96 +372,146 @@ func TestHandleRefreshToken(t *testing.T) {
 	})
 
 	t.Run("it should successfully refresh user token a user", func(t *testing.T) {
-		mockUserStore, ts, router, config := setupTestServer()
-		defer ts.Close()
-
-		mockUserStore.On("GetByEmail", mock.Anything, mock.Anything).Return(
-			&types.UserResponse{
-				ID:        1,
-				Username:  "JohnDoe",
-				Email:     "johndoe@email.com",
-				CreatedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
-				UpdatedAt: nil,
-				DeletedAt: nil,
+		_, ts, _, _ := setupTestServer()
+		mockClaims := &utils.CustomClaims{
+			UserID:   1,
+			Username: "test_user",
+			Email:    "test_user@example.com",
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
+				ID:        "mockJti",
 			},
-			nil,
-		)
-
-		userLoginPayload := types.UserLoginPayload{
-			Email:    "johndoe@email.com",
-			Password: "123mudar",
-		}
-		userLoginMarshalled, _ := json.Marshal(userLoginPayload)
-
-		reqUserLogin := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/auth", bytes.NewBuffer(userLoginMarshalled))
-		wUserLogin := httptest.NewRecorder()
-
-		router.ServeHTTP(wUserLogin, reqUserLogin)
-
-		resUserLogin := wUserLogin.Result()
-		defer resUserLogin.Body.Close()
-
-		assert.Equal(t, http.StatusOK, resUserLogin.StatusCode)
-
-		responseUserLoginBody, err := io.ReadAll(resUserLogin.Body)
-		if err != nil {
-			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		var responseUserLoginMap types.UserLoginResponse
-		err = json.Unmarshal(responseUserLoginBody, &responseUserLoginMap)
-		if err != nil {
-			t.Fatalf("Failed to unmarshal response body: %v", err)
+		mockStoredToken := types.RefreshToken{
+			ID:        1,
+			UserID:    1,
+			Jti:       "mockJti",
+			ExpiresAt: time.Now().Add(time.Hour),
+			CreatedAt: time.Now(),
 		}
 
-		assert.NotEmpty(t, responseUserLoginMap.AccessToken, "Access token should not be empty")
-		assert.NotEmpty(t, responseUserLoginMap.RefreshToken, "Refresh token should not be empty")
-
-		userRefreshTokenPayload := types.RefreshTokenPayload{
-			AccessToken: responseUserLoginMap.AccessToken,
-		}
-		userRefreshTokenMarshalled, _ := json.Marshal(userRefreshTokenPayload)
-
-		reqRefreshToken := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/auth/refresh", bytes.NewBuffer(userRefreshTokenMarshalled))
-		wRefreshToken := httptest.NewRecorder()
-
-		router.ServeHTTP(wRefreshToken, reqRefreshToken)
-
-		resRefreshToken := wRefreshToken.Result()
-		defer resRefreshToken.Body.Close()
-
-		assert.Equal(t, http.StatusOK, resRefreshToken.StatusCode)
-
-		responseRefreshTokenBody, err := io.ReadAll(resRefreshToken.Body)
-		if err != nil {
-			t.Fatalf("Failed to read response body: %v", err)
+		newAccessToken := "newAccessToken"
+		newRefreshToken := "newRefreshToken"
+		newRefreshTokenClaims := &utils.CustomClaims{
+			UserID: 1,
+			RegisteredClaims: jwt.RegisteredClaims{
+				ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+				ID:        "newMockJti",
+			},
 		}
 
-		var responseRefreshTokenMap map[string]interface{}
-		err = json.Unmarshal(responseRefreshTokenBody, &responseRefreshTokenMap)
-		if err != nil {
-			t.Fatalf("Failed to unmarshal response body: %v", err)
+		requestPayload := types.RefreshTokenPayload{
+			AccessToken: "validAccessToken",
 		}
 
-		access_token, ok := responseRefreshTokenMap["access_token"].(string)
-		if !ok {
-			t.Fatalf("access_token not found or not a string")
-		}
+		body, _ := json.Marshal(requestPayload)
 
-		refresh_token, ok := responseRefreshTokenMap["refresh_token"].(string)
-		if !ok {
-			t.Fatalf("refresh_token not found or not a string")
-		}
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/auth/refresh", bytes.NewBuffer(userRefreshTokenMarshalled))
+		// mockUserStore, mockAuthStore, ts, router, config := setupTestServer()
+		// defer ts.Close()
 
-		access_token_claims, err := utils.VerifyJWT(access_token, config.JWTSecret)
-		assert.NoError(t, err, "Failed to verify JWT token")
+		// mockUserStore.On("GetByEmail", mock.Anything, mock.Anything).Return(
+		// 	&types.UserResponse{
+		// 		ID:        1,
+		// 		Username:  "JohnDoe",
+		// 		Email:     "johndoe@email.com",
+		// 		CreatedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
+		// 		UpdatedAt: nil,
+		// 		DeletedAt: nil,
+		// 	},
+		// 	nil,
+		// )
 
-		assert.Equal(t, "johndoe@email.com", access_token_claims.Email, "Email claim mismatch")
-		assert.Equal(t, "JohnDoe", access_token_claims.Username, "Username claim mismatch")
-		assert.Equal(t, 1, access_token_claims.UserID, "UserID claim mismatch")
+		// mockAuthStore.On("GetRefreshTokenByUserID", mock.Anything, mock.Anything).Return(
+		// 	&types.RefreshToken{
+		// 		UserID:    1,
+		// 		CreatedAt: time.Now(),
+		// 		ExpiresAt: time.Now().Add(24 * time.Hour),
+		// 		Jti:       "5bb63ea0-c00f-43a2-9534-0c8da7fc8523",
+		// 	},
+		// 	nil,
+		// )
 
-		refresh_token_claims, err := utils.VerifyJWT(refresh_token, config.JWTSecret)
-		assert.NoError(t, err, "Failed to verify JWT token")
-		assert.Equal(t, 1, refresh_token_claims.UserID, "UserID claim mismatch")
+		// mockAuthStore.On("UpdateRefreshTokenByUserID", mock.Anything, mock.Anything).Return(
+		// 	nil,
+		// )
+
+		// userLoginPayload := types.UserLoginPayload{
+		// 	Email:    "johndoe@email.com",
+		// 	Password: "123mudar",
+		// }
+		// marshalled, _ := json.Marshal(userLoginPayload)
+
+		// userLoginReq := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/auth", bytes.NewBuffer(marshalled))
+		// userLoginW := httptest.NewRecorder()
+
+		// router.ServeHTTP(userLoginW, userLoginReq)
+
+		// resUserLogin := userLoginW.Result()
+		// defer resUserLogin.Body.Close()
+
+		// assert.Equal(t, http.StatusOK, resUserLogin.StatusCode)
+
+		// responseUserLoginBody, err := io.ReadAll(resUserLogin.Body)
+		// if err != nil {
+		// 	t.Fatalf("Failed to read response body: %v", err)
+		// }
+
+		// var responseUserLoginMap types.UserLoginResponse
+		// err = json.Unmarshal(responseUserLoginBody, &responseUserLoginMap)
+		// if err != nil {
+		// 	t.Fatalf("Failed to unmarshal response body: %v", err)
+		// }
+
+		// assert.NotEmpty(t, responseUserLoginMap.AccessToken, "Access token should not be empty")
+		// assert.NotEmpty(t, responseUserLoginMap.RefreshToken, "Refresh token should not be empty")
+
+		// userRefreshTokenPayload := types.RefreshTokenPayload{
+		// 	AccessToken: responseUserLoginMap.AccessToken,
+		// }
+		// userRefreshTokenMarshalled, _ := json.Marshal(userRefreshTokenPayload)
+
+		// reqRefreshToken := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/auth/refresh", bytes.NewBuffer(userRefreshTokenMarshalled))
+		// wRefreshToken := httptest.NewRecorder()
+
+		// router.ServeHTTP(wRefreshToken, reqRefreshToken)
+
+		// resRefreshToken := wRefreshToken.Result()
+		// defer resRefreshToken.Body.Close()
+
+		// assert.Equal(t, http.StatusOK, resRefreshToken.StatusCode)
+
+		// responseRefreshTokenBody, err := io.ReadAll(resRefreshToken.Body)
+		// if err != nil {
+		// 	t.Fatalf("Failed to read response body: %v", err)
+		// }
+
+		// var responseRefreshTokenMap map[string]interface{}
+		// err = json.Unmarshal(responseRefreshTokenBody, &responseRefreshTokenMap)
+		// if err != nil {
+		// 	t.Fatalf("Failed to unmarshal response body: %v", err)
+		// }
+
+		// access_token, ok := responseRefreshTokenMap["access_token"].(string)
+		// if !ok {
+		// 	t.Fatalf("access_token not found or not a string")
+		// }
+
+		// refresh_token, ok := responseRefreshTokenMap["refresh_token"].(string)
+		// if !ok {
+		// 	t.Fatalf("refresh_token not found or not a string")
+		// }
+
+		// access_token_claims, err := utils.VerifyJWT(access_token, config.JWTSecret)
+		// assert.NoError(t, err, "Failed to verify JWT token")
+
+		// assert.Equal(t, "johndoe@email.com", access_token_claims.Email, "Email claim mismatch")
+		// assert.Equal(t, "JohnDoe", access_token_claims.Username, "Username claim mismatch")
+		// assert.Equal(t, 1, access_token_claims.UserID, "UserID claim mismatch")
+
+		// refresh_token_claims, err := utils.VerifyJWT(refresh_token, config.JWTSecret)
+		// assert.NoError(t, err, "Failed to verify JWT token")
+		// assert.Equal(t, 1, refresh_token_claims.UserID, "UserID claim mismatch")
 	})
 }

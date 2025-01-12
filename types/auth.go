@@ -6,8 +6,8 @@ import (
 )
 
 type AuthStore interface {
-	UpdateRefreshTokenByUserID(ctx context.Context, payload UpdateRefreshTokenPayload) (*RefreshToken, error)
 	GetRefreshTokenByUserID(ctx context.Context, userID int) (*RefreshToken, error)
+	UpdateRefreshTokenByUserID(ctx context.Context, payload UpdateRefreshTokenPayload) error
 }
 
 type UserLoginPayload struct {
