@@ -19,12 +19,10 @@ func NewHealthCheckHandler(cfg config.Config) *HealthCheckHandler {
 }
 
 func (h *HealthCheckHandler) HandleHealthCheck(w http.ResponseWriter, r *http.Request) {
-	response := &types.HealthcheckResponse{
+	utils.WriteJSON(w, http.StatusOK, &types.HealthcheckResponse{
 		Status: "available",
 		SystemInfo: map[string]string{
 			"environment": h.cfg.Environment,
 		},
-	}
-
-	utils.WriteJSON(w, http.StatusOK, response)
+	})
 }
