@@ -61,7 +61,7 @@ func (h *BookHandler) HandleCreateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusCreated, map[string]int{"id": id})
+	utils.WriteJSON(w, http.StatusCreated, types.CreateBookResponse{ID: id})
 }
 
 func (h *BookHandler) HandleGetBookByID(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +77,7 @@ func (h *BookHandler) HandleGetBookByID(w http.ResponseWriter, r *http.Request) 
 	book, err := h.bookStore.GetByID(r.Context(), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No book found with ID %d", id)})
+			utils.WriteJSON(w, http.StatusNotFound, types.NotFoundResponse{Error: fmt.Sprintf("No book found with ID %d", id)})
 			return
 		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBookByID", "Failed to get user by id from database", "An unexpected error occurred")
@@ -116,7 +116,7 @@ func (h *BookHandler) HandleUpdateBookByID(w http.ResponseWriter, r *http.Reques
 	book, err := h.bookStore.UpdateByID(r.Context(), id, payload)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No book found with ID %d", id)})
+			utils.WriteJSON(w, http.StatusNotFound, types.NotFoundResponse{Error: fmt.Sprintf("No book found with ID %d", id)})
 			return
 		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateBookByID", "Failed to update book by id in database", "An unexpected error occurred")
@@ -139,12 +139,12 @@ func (h *BookHandler) HandleDeleteBookByID(w http.ResponseWriter, r *http.Reques
 	returnedID, err := h.bookStore.DeleteByID(r.Context(), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No book found with ID %d", id)})
+			utils.WriteJSON(w, http.StatusNotFound, types.NotFoundResponse{Error: fmt.Sprintf("No book found with ID %d", id)})
 			return
 		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteBookByID", "Failed to delete user by id from database", "An unexpected error occurred")
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, map[string]int{"id": returnedID})
+	utils.WriteJSON(w, http.StatusOK, types.DeleteBookByIDResponse{ID: returnedID})
 }

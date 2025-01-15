@@ -39,6 +39,10 @@ type CreateUserRequestPayload struct {
 	ConfirmPassword string `json:"confirm_password" validate:"required,min=8"`
 }
 
+type CreateUserByIDResponse struct {
+	ID int `json:"id"`
+}
+
 type CreateUserDatabasePayload struct {
 	Username     string `json:"username"`
 	Email        string `json:"email"`
@@ -48,4 +52,8 @@ type CreateUserDatabasePayload struct {
 type UpdateUserPayload struct {
 	Username *string `json:"username,omitempty" validate:"omitempty,min=5"`
 	Email    *string `json:"email,omitempty" validate:"omitempty,email"`
+}
+
+type DeleteUserByIDResponse struct {
+	ID int `json:"id"`
 }
