@@ -51,7 +51,7 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 	user, err := h.userStore.GetByEmail(r.Context(), requestPayload.Email)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			utils.WriteJSON(w, http.StatusNotFound, types.NotFoundResponse{Error: fmt.Sprintf("No user found with email %s", requestPayload.Email)})
+			utils.WriteError(w, http.StatusNotFound, err, "HandleUserLogin", "Failed to get user by email from database", fmt.Sprintf("No user found with email %s", requestPayload.Email))
 			return
 		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "Failed get user by email from database", "An unexpected error occurred")
@@ -116,7 +116,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 	storedToken, err := h.authStore.GetRefreshTokenByUserID(r.Context(), claims.UserID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			utils.WriteJSON(w, http.StatusNotFound, types.NotFoundResponse{Error: fmt.Sprintf("No refresh token found with user ID %d", claims.UserID)})
+			utils.WriteError(w, http.StatusNotFound, err, "HandleRefreshToken", "Failed get refresh token by user ID from database", fmt.Sprintf("No refresh token found with user ID %d", claims.UserID))
 			return
 		}
 		utils.WriteError(w, http.StatusUnauthorized, err, "HandleRefreshToken", "Failed get refresh token by user ID from database", "Unauthorized")
