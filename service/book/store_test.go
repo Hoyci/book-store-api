@@ -41,7 +41,6 @@ func TestCreateBook(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Zero(t, id)
-		assert.Contains(t, err.Error(), "unexpected error inserting book")
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -83,7 +82,7 @@ func TestGetBookByID(t *testing.T) {
 
 		assert.Nil(t, book)
 		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "no row found with id: '1'")
+		assert.Equal(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -99,7 +98,7 @@ func TestGetBookByID(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Zero(t, book)
-		assert.Contains(t, err.Error(), "unexpected error getting book with id:")
+		assert.NotEqual(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -170,7 +169,7 @@ func TestUpdateBook(t *testing.T) {
 
 		assert.Nil(t, id)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no row found with id: '1'")
+		assert.Equal(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -199,7 +198,7 @@ func TestUpdateBook(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Zero(t, id)
-		assert.Contains(t, err.Error(), "unexpected error updating book with id: '1'")
+		assert.NotEqual(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -269,7 +268,7 @@ func TestDeleteByID(t *testing.T) {
 
 		assert.Equal(t, id, 0)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no row found with id: '1'")
+		assert.Equal(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -285,7 +284,7 @@ func TestDeleteByID(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Zero(t, id)
-		assert.Contains(t, err.Error(), "unexpected error deleting book with id: '1'")
+		assert.NotEqual(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)

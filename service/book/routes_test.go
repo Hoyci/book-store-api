@@ -3,6 +3,7 @@ package book_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -62,7 +63,7 @@ func TestHandleCreateBook(t *testing.T) {
 		defer ts.Close()
 
 		invalidBody := bytes.NewReader([]byte("INVALID JSON"))
-		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/book", invalidBody)
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/books", invalidBody)
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -96,7 +97,7 @@ func TestHandleCreateBook(t *testing.T) {
 		}
 		marshalled, _ := json.Marshal(payload)
 
-		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/book", bytes.NewBuffer(marshalled))
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/books", bytes.NewBuffer(marshalled))
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -132,7 +133,7 @@ func TestHandleCreateBook(t *testing.T) {
 		}
 		marshalled, _ := json.Marshal(payload)
 
-		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/book", bytes.NewBuffer(marshalled))
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/books", bytes.NewBuffer(marshalled))
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -164,7 +165,7 @@ func TestHandleCreateBook(t *testing.T) {
 		}
 		marshalled, _ := json.Marshal(payload)
 
-		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/book", bytes.NewBuffer(marshalled))
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/books", bytes.NewBuffer(marshalled))
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -198,7 +199,7 @@ func TestHandleGetBookByID(t *testing.T) {
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/book", nil)
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books", nil)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -213,7 +214,7 @@ func TestHandleGetBookByID(t *testing.T) {
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/book/johndoe", nil)
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/johndoe", nil)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -229,6 +230,31 @@ func TestHandleGetBookByID(t *testing.T) {
 		}
 
 		expectedResponse := `{"error":"Book ID must be a positive integer"}`
+		assert.JSONEq(t, expectedResponse, string(responseBody))
+	})
+
+	t.Run("it should throw an error when call endpoint with a non-existent book ID", func(t *testing.T) {
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("GetByID", mock.Anything, 1).Return(&types.Book{}, sql.ErrNoRows)
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/1", nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+
+		expectedResponse := `{"error": "No book found with ID 1"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -250,7 +276,7 @@ func TestHandleGetBookByID(t *testing.T) {
 			UpdatedAt:     nil,
 		}, nil)
 
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/book/1", nil)
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/1", nil)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -271,12 +297,12 @@ func TestHandleGetBookByID(t *testing.T) {
 			"description": "A book about Go programming",
 			"author": "John Doe",
 			"genres": ["Programming"],
-			"releaseYear": 2024,
-			"numberOfPages": 300,
-			"imageUrl": "http://example.com/go.jpg",
-			"createdAt": "0001-01-01T00:00:00Z",
-			"deletedAt": null,
-			"updatedAt": null
+			"release_year": 2024,
+			"number_of_pages": 300,
+			"image_url": "http://example.com/go.jpg",
+			"created_at": "0001-01-01T00:00:00Z",
+			"deleted_at": null,
+			"updated_at": null
 		}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
@@ -296,7 +322,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/book", nil)
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books", nil)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -311,7 +337,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/book/johndoe", nil)
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/johndoe", nil)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -335,7 +361,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		defer ts.Close()
 
 		emptyPayload := `{}`
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/book/1", bytes.NewBufferString(emptyPayload))
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(emptyPayload))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -360,7 +386,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		defer ts.Close()
 
 		invalidPayload := `{"name": ""}`
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/book/1", bytes.NewBufferString(invalidPayload))
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(invalidPayload))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -377,6 +403,37 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		}
 
 		expectedResponse := `{"error":["Field validation for 'Name' failed on the 'min' tag"]}`
+		assert.JSONEq(t, expectedResponse, string(responseBody))
+	})
+
+	t.Run("it should throw an error when call endpoint with a non-existent user ID", func(t *testing.T) {
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("UpdateByID", mock.Anything, 1, mock.Anything).Return(&types.Book{}, sql.ErrNoRows)
+
+		validPayload := `{
+			"name": "Go Programming - Updated",
+			"genres": ["Programming", "Go"],
+			"image_url": "http://example.com/go_updated.jpg"
+		}`
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(validPayload))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+
+		expectedResponse := `{"error": "No book found with ID 1"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -401,9 +458,9 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		validPayload := `{
 			"name": "Go Programming - Updated",
 			"genres": ["Programming", "Go"],
-			"imageUrl": "http://example.com/go_updated.jpg"
+			"image_url": "http://example.com/go_updated.jpg"
 		}`
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/book/1", bytes.NewBufferString(validPayload))
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(validPayload))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -425,12 +482,12 @@ func TestHandleUpdateBookByID(t *testing.T) {
 			"description": "Updated description",
 			"author": "John Doe",
 			"genres": ["Programming", "Go"],
-			"releaseYear": 2024,
-			"numberOfPages": 350,
-			"imageUrl": "http://example.com/go_updated.jpg",
-			"createdAt": "0001-01-01T00:00:00Z",
-			"updatedAt": "0001-01-01T00:00:00Z",
-			"deletedAt": null 
+			"release_year": 2024,
+			"number_of_pages": 350,
+			"image_url": "http://example.com/go_updated.jpg",
+			"created_at": "0001-01-01T00:00:00Z",
+			"updated_at": "0001-01-01T00:00:00Z",
+			"deleted_at": null 
 		}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
@@ -450,7 +507,7 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
-		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/book", nil)
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books", nil)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -465,7 +522,7 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
-		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/book/johndoe", nil)
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/johndoe", nil)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -484,13 +541,38 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
+	t.Run("it should throw an error when call endpoint with a non-existent user ID", func(t *testing.T) {
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(int(0), sql.ErrNoRows)
+
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusNotFound, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+
+		expectedResponse := `{"error": "No book found with ID 1"}`
+		assert.JSONEq(t, expectedResponse, string(responseBody))
+	})
+
 	t.Run("it should return succssefully status and body when call endpoint with valid body", func(t *testing.T) {
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
 		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(int(1), nil)
 
-		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/book/1", nil)
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)

@@ -47,15 +47,15 @@ func (s *APIServer) SetupRouter(
 	subrouter.HandleFunc("/auth", authHandler.HandleUserLogin).Methods(http.MethodPost)
 	subrouter.HandleFunc("/auth/refresh", authHandler.HandleRefreshToken).Methods(http.MethodPost)
 
-	subrouter.HandleFunc("/book", bookHandler.HandleCreateBook).Methods(http.MethodPost)
-	subrouter.HandleFunc("/book/{id}", bookHandler.HandleGetBookByID).Methods(http.MethodGet)
-	subrouter.HandleFunc("/book/{id}", bookHandler.HandleUpdateBookByID).Methods(http.MethodPut)
-	subrouter.HandleFunc("/book/{id}", bookHandler.HandleDeleteBookByID).Methods(http.MethodDelete)
+	subrouter.HandleFunc("/books", bookHandler.HandleCreateBook).Methods(http.MethodPost)
+	subrouter.HandleFunc("/books/{id}", bookHandler.HandleGetBookByID).Methods(http.MethodGet)
+	subrouter.HandleFunc("/books/{id}", bookHandler.HandleUpdateBookByID).Methods(http.MethodPut)
+	subrouter.HandleFunc("/books/{id}", bookHandler.HandleDeleteBookByID).Methods(http.MethodDelete)
 
-	subrouter.HandleFunc("/user", userHandler.HandleCreateUser).Methods(http.MethodPost)
-	subrouter.HandleFunc("/user/{id}", userHandler.HandleGetUserByID).Methods(http.MethodGet)
-	subrouter.HandleFunc("/user/{id}", userHandler.HandleUpdateUserByID).Methods(http.MethodPut)
-	subrouter.HandleFunc("/user/{id}", userHandler.HandleDeleteUserByID).Methods(http.MethodDelete)
+	subrouter.HandleFunc("/users", userHandler.HandleCreateUser).Methods(http.MethodPost)
+	subrouter.HandleFunc("/users/{id}", userHandler.HandleGetUserByID).Methods(http.MethodGet)
+	subrouter.HandleFunc("/users/{id}", userHandler.HandleUpdateUserByID).Methods(http.MethodPut)
+	subrouter.HandleFunc("/users/{id}", userHandler.HandleDeleteUserByID).Methods(http.MethodDelete)
 
 	s.Router = router
 

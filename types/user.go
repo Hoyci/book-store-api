@@ -36,13 +36,13 @@ type CreateUserRequestPayload struct {
 	Username        string `json:"username" validate:"required,min=5"`
 	Email           string `json:"email" validate:"required,email"`
 	Password        string `json:"password" validate:"required,min=8"`
-	ConfirmPassword string `json:"confirmPassword" validate:"required,min=8"`
+	ConfirmPassword string `json:"confirm_password" validate:"required,min=8"`
 }
 
 type CreateUserDatabasePayload struct {
 	Username     string `json:"username"`
 	Email        string `json:"email"`
-	PasswordHash string `json:"passwordHash"`
+	PasswordHash string `json:"passwor_hash"`
 }
 
 type UpdateUserPayload struct {
