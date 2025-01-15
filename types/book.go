@@ -36,6 +36,10 @@ type CreateBookPayload struct {
 	ImageUrl      string   `json:"image_url" validate:"required,url"`
 }
 
+type CreateBookResponse struct {
+	ID int `json:"id"`
+}
+
 type UpdateBookPayload struct {
 	Name          *string   `json:"name,omitempty" validate:"omitempty,min=3"`
 	Description   *string   `json:"description,omitempty" validate:"omitempty,min=5"`
@@ -44,4 +48,8 @@ type UpdateBookPayload struct {
 	ReleaseYear   *int      `json:"release_year,omitempty" validate:"omitempty,gte=1500,lte=2099"`
 	NumberOfPages *int      `json:"number_of_pages,omitempty" validate:"omitempty,gte=1"`
 	ImageUrl      *string   `json:"image_url,omitempty" validate:"omitempty,url"`
+}
+
+type DeleteBookByIDResponse struct {
+	ID int `json:"id"`
 }

@@ -37,3 +37,8 @@ type UpdateRefreshTokenPayload struct {
 	Jti       string    `db:"jti"`
 	ExpiresAt time.Time `db:"expires_at"`
 }
+
+type UpdateRefreshTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
