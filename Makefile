@@ -18,3 +18,6 @@ migration:
 # go run cmd/migrate/main.go down
 @migrate-down:
 	@go run cmd/migrate/main.go down
+
+dev:
+	@if [ "$(ENV)" = "development" ]; then air; else echo "Use the run command for production"; fi
