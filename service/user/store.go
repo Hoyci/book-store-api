@@ -38,7 +38,7 @@ func (s *UserStore) Create(ctx context.Context, newUser types.CreateUserDatabase
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("unexpected error updating user %w", err)
+		return nil, err
 	}
 
 	return user, nil
@@ -47,7 +47,7 @@ func (s *UserStore) Create(ctx context.Context, newUser types.CreateUserDatabase
 func (s *UserStore) GetByID(ctx context.Context, id int) (*types.UserResponse, error) {
 	user := &types.UserResponse{}
 
-	err := s.db.QueryRowContext(ctx, "SELECT * FROM users WHERE id = $1 AND deleted_at IS null", id).
+	err := s.db.QueryRowContext(ctx, "SELECT id, username, email, created_at, updated_at, deleted_at  FROM users WHERE id = $1 AND deleted_at IS null", id).
 		Scan(
 			&user.ID,
 			&user.Username,
@@ -57,20 +57,15 @@ func (s *UserStore) GetByID(ctx context.Context, id int) (*types.UserResponse, e
 			&user.DeletedAt,
 		)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no row found with id: '%d'", id)
-		}
-		return nil, fmt.Errorf("unexpected error getting user with id: '%d'", id)
+		return nil, err
 	}
 
 	return user, nil
 }
 
 func (s *UserStore) GetByEmail(ctx context.Context, email string) (*types.UserResponse, error) {
-	fmt.Println(email)
 	user := &types.UserResponse{}
-
-	err := s.db.QueryRowContext(ctx, "SELECT * FROM users WHERE email = $1 AND deleted_at IS null", email).
+	err := s.db.QueryRowContext(ctx, "SELECT id, username, email, created_at, updated_at, deleted_at FROM users WHERE email = $1 AND deleted_at IS null", email).
 		Scan(
 			&user.ID,
 			&user.Username,
@@ -80,11 +75,7 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*types.UserRe
 			&user.DeletedAt,
 		)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no row found with email: '%s'", email)
-		}
-		fmt.Println(err)
-		return nil, fmt.Errorf("unexpected error getting user with email: '%s'", email)
+		return nil, err
 	}
 
 	return user, nil
@@ -132,10 +123,7 @@ func (s *UserStore) UpdateByID(ctx context.Context, id int, newUser types.Update
 		&updatedUser.DeletedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no row found with id: '%d'", id)
-		}
-		return nil, fmt.Errorf("unexpected error updating user with id: '%d': %v", id, err)
+		return nil, err
 	}
 
 	return updatedUser, nil
@@ -150,10 +138,7 @@ func (s *UserStore) DeleteByID(ctx context.Context, id int) (int, error) {
 		time.Now(),
 	).Scan(&returnedID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, fmt.Errorf("no row found with id: '%d'", id)
-		}
-		return 0, fmt.Errorf("unexpected error deleting user with id: '%d': %v", id, err)
+		return 0, err
 	}
 
 	return returnedID, nil

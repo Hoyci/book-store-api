@@ -18,12 +18,12 @@ type Book struct {
 	Description   string     `json:"description"`
 	Author        string     `json:"author"`
 	Genres        []string   `json:"genres"`
-	ReleaseYear   int        `json:"releaseYear"`
-	NumberOfPages int        `json:"numberOfPages"`
-	ImageUrl      string     `json:"imageUrl"`
-	CreatedAt     time.Time  `json:"createdAt"`
-	DeletedAt     *time.Time `json:"deletedAt"`
-	UpdatedAt     *time.Time `json:"updatedAt"`
+	ReleaseYear   int        `json:"release_year"`
+	NumberOfPages int        `json:"number_of_pages"`
+	ImageUrl      string     `json:"image_url"`
+	CreatedAt     time.Time  `json:"created_at"`
+	DeletedAt     *time.Time `json:"deleted_at"`
+	UpdatedAt     *time.Time `json:"updated_at"`
 }
 
 type CreateBookPayload struct {
@@ -31,9 +31,9 @@ type CreateBookPayload struct {
 	Description   string   `json:"description" validate:"required,min=5"`
 	Author        string   `json:"author" validate:"required,min=3"`
 	Genres        []string `json:"genres" validate:"required,dive,min=1"`
-	ReleaseYear   int      `json:"releaseYear" validate:"required,gte=1500,lte=2099"`
-	NumberOfPages int      `json:"numberOfPages" validate:"required,gte=1"`
-	ImageUrl      string   `json:"imageUrl" validate:"required,url"`
+	ReleaseYear   int      `json:"release_year" validate:"required,gte=1500,lte=2099"`
+	NumberOfPages int      `json:"number_of_pages" validate:"required,gte=1"`
+	ImageUrl      string   `json:"image_url" validate:"required,url"`
 }
 
 type UpdateBookPayload struct {
@@ -41,7 +41,7 @@ type UpdateBookPayload struct {
 	Description   *string   `json:"description,omitempty" validate:"omitempty,min=5"`
 	Author        *string   `json:"author,omitempty" validate:"omitempty,min=3"`
 	Genres        *[]string `json:"genres,omitempty" validate:"omitempty,dive,min=1"`
-	ReleaseYear   *int      `json:"releaseYear,omitempty" validate:"omitempty,gte=1500,lte=2099"`
-	NumberOfPages *int      `json:"numberOfPages,omitempty" validate:"omitempty,gte=1"`
-	ImageUrl      *string   `json:"imageUrl,omitempty" validate:"omitempty,url"`
+	ReleaseYear   *int      `json:"release_year,omitempty" validate:"omitempty,gte=1500,lte=2099"`
+	NumberOfPages *int      `json:"number_of_pages,omitempty" validate:"omitempty,gte=1"`
+	ImageUrl      *string   `json:"image_url,omitempty" validate:"omitempty,url"`
 }

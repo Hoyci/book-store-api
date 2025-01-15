@@ -1,6 +1,7 @@
 package book
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -75,6 +76,10 @@ func (h *BookHandler) HandleGetBookByID(w http.ResponseWriter, r *http.Request) 
 
 	book, err := h.bookStore.GetByID(r.Context(), id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No book found with ID %d", id)})
+			return
+		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBookByID", "Failed to get user by id from database", "An unexpected error occurred")
 		return
 	}
@@ -110,6 +115,10 @@ func (h *BookHandler) HandleUpdateBookByID(w http.ResponseWriter, r *http.Reques
 
 	book, err := h.bookStore.UpdateByID(r.Context(), id, payload)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No book found with ID %d", id)})
+			return
+		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateBookByID", "Failed to update book by id in database", "An unexpected error occurred")
 		return
 	}
@@ -129,6 +138,10 @@ func (h *BookHandler) HandleDeleteBookByID(w http.ResponseWriter, r *http.Reques
 
 	returnedID, err := h.bookStore.DeleteByID(r.Context(), id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No book found with ID %d", id)})
+			return
+		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteBookByID", "Failed to delete user by id from database", "An unexpected error occurred")
 		return
 	}

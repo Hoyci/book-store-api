@@ -1,6 +1,7 @@
 package user
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -89,6 +90,10 @@ func (h *UserHandler) HandleGetUserByID(w http.ResponseWriter, r *http.Request) 
 
 	user, err := h.userStore.GetByID(r.Context(), id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No user found with ID %d", id)})
+			return
+		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetUserByID", "Failed to get user by id from database", "An unexpected error occurred")
 		return
 	}
@@ -124,12 +129,11 @@ func (h *UserHandler) HandleUpdateUserByID(w http.ResponseWriter, r *http.Reques
 
 	user, err := h.userStore.UpdateByID(r.Context(), id, payload)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No user found with ID %d", id)})
+			return
+		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateUserByID", "Failed to update user by id in database", "An unexpected error occurred")
-		return
-	}
-
-	if payload.Username == nil && payload.Email == nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateBookByID", "User sent a request missing mandatory data", "Missing mandatory data")
 		return
 	}
 
@@ -148,6 +152,10 @@ func (h *UserHandler) HandleDeleteUserByID(w http.ResponseWriter, r *http.Reques
 
 	returnedID, err := h.userStore.DeleteByID(r.Context(), id)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No user found with ID %d", id)})
+			return
+		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteUserByID", "Failed to delete user by id from database", "An unexpected error occurred")
 		return
 	}

@@ -34,7 +34,7 @@ func (s *BookStore) Create(ctx context.Context, book types.CreateBookPayload) (i
 	).Scan(&id)
 
 	if err != nil {
-		return 0, fmt.Errorf("unexpected error inserting book: %w", err)
+		return 0, err
 	}
 
 	return id, nil
@@ -58,10 +58,7 @@ func (s *BookStore) GetByID(ctx context.Context, id int) (*types.Book, error) {
 			&book.DeletedAt,
 		)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no row found with id: '%d'", id)
-		}
-		return nil, fmt.Errorf("unexpected error getting book with id: '%d': %v", id, err)
+		return nil, err
 	}
 
 	return book, nil
@@ -118,10 +115,7 @@ func (s *BookStore) UpdateByID(ctx context.Context, id int, newBook types.Update
 		&updatedBook.UpdatedAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no row found with id: '%d'", id)
-		}
-		return nil, fmt.Errorf("unexpected error updating book with id: '%d': %v", id, err)
+		return nil, err
 	}
 
 	return updatedBook, nil
@@ -136,10 +130,7 @@ func (s *BookStore) DeleteByID(ctx context.Context, id int) (int, error) {
 		time.Now(),
 	).Scan(&returnedID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return 0, fmt.Errorf("no row found with id: '%d'", id)
-		}
-		return 0, fmt.Errorf("unexpected error deleting book with id: '%d': %v", id, err)
+		return 0, err
 	}
 
 	return returnedID, nil

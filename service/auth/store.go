@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"database/sql"
-	"fmt"
 
 	"github.com/hoyci/book-store-api/types"
 )
@@ -28,23 +27,23 @@ func (s *AuthStore) GetRefreshTokenByUserID(ctx context.Context, userID int) (*t
 			&token.ExpiresAt,
 		)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("no row found with id: '%d'", userID)
-		}
-		return nil, fmt.Errorf("unexpected error getting refresh_token with user_id: '%d'", userID)
+		return nil, err
 	}
 
 	return token, nil
 }
 
-func (s *AuthStore) UpdateRefreshTokenByUserID(ctx context.Context, payload types.UpdateRefreshTokenPayload) error {
+func (s *AuthStore) UpsertRefreshToken(ctx context.Context, payload types.UpdateRefreshTokenPayload) error {
 	token := &types.RefreshToken{}
 
 	err := s.db.QueryRowContext(
 		ctx,
-		`UPDATE refresh_tokens 
-         SET jti = $2, expires_at = $3 
-         WHERE user_id = $1 
+		`INSERT INTO refresh_tokens (user_id, jti, expires_at) 
+         VALUES ($1, $2, $3) 
+         ON CONFLICT (user_id) 
+         DO UPDATE SET 
+             jti = EXCLUDED.jti, 
+             expires_at = EXCLUDED.expires_at 
          RETURNING id, user_id, jti, created_at, expires_at`,
 		payload.UserID,
 		payload.Jti,
@@ -57,10 +56,7 @@ func (s *AuthStore) UpdateRefreshTokenByUserID(ctx context.Context, payload type
 		&token.ExpiresAt,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return fmt.Errorf("no row found with user_id: '%d'", payload.UserID)
-		}
-		return fmt.Errorf("unexpected error updating refresh_token with user_id: '%d': %v", payload.UserID, err)
+		return err
 	}
 
 	return nil

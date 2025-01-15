@@ -30,7 +30,7 @@ func TestGetRefreshTokenByUserID(t *testing.T) {
 
 		assert.Nil(t, refreshToken)
 		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "no row found with id: '1'")
+		assert.Equal(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -46,7 +46,7 @@ func TestGetRefreshTokenByUserID(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Zero(t, refreshToken)
-		assert.Contains(t, err.Error(), "unexpected error getting refresh_token with user_id: '1'")
+		assert.NotEqual(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -87,29 +87,21 @@ func TestUpdateRefreshTokenByUserID(t *testing.T) {
 	}
 
 	t.Run("database did not find any row to update", func(t *testing.T) {
-		mock.ExpectQuery(`UPDATE refresh_tokens SET jti = \$2, expires_at = \$3 WHERE user_id = \$1 RETURNING id, user_id, jti, created_at, expires_at`).
+		mock.ExpectQuery(`
+				INSERT INTO refresh_tokens \(user_id, jti, expires_at\) 
+				VALUES \(\$1, \$2, \$3\) 
+				ON CONFLICT \(user_id\) 
+				DO UPDATE 
+				SET jti = EXCLUDED\.jti, expires_at = EXCLUDED\.expires_at 
+				RETURNING id, user_id, jti, created_at, expires_at
+			`).
 			WithArgs(payload.UserID, payload.Jti, payload.ExpiresAt).
 			WillReturnError(sql.ErrNoRows)
 
-		err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
+		err := store.UpsertRefreshToken(context.Background(), payload)
 
 		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "no row found with user_id: '1'")
-
-		if err := mock.ExpectationsWereMet(); err != nil {
-			t.Errorf("unmet expectations: %v", err)
-		}
-	})
-
-	t.Run("database did not find any row to update", func(t *testing.T) {
-		mock.ExpectQuery(`UPDATE refresh_tokens SET jti = \$2, expires_at = \$3 WHERE user_id = \$1 RETURNING id, user_id, jti, created_at, expires_at`).
-			WithArgs(payload.UserID, payload.Jti, payload.ExpiresAt).
-			WillReturnError(sql.ErrNoRows)
-
-		err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
-
-		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "no row found with user_id: '1'")
+		assert.Equal(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -117,14 +109,43 @@ func TestUpdateRefreshTokenByUserID(t *testing.T) {
 	})
 
 	t.Run("database unexpected error", func(t *testing.T) {
-		mock.ExpectQuery(`UPDATE refresh_tokens SET jti = \$2, expires_at = \$3 WHERE user_id = \$1 RETURNING id, user_id, jti, created_at, expires_at`).
+		mock.ExpectQuery(`
+				INSERT INTO refresh_tokens \(user_id, jti, expires_at\) 
+				VALUES \(\$1, \$2, \$3\) 
+				ON CONFLICT \(user_id\) 
+				DO UPDATE 
+				SET jti = EXCLUDED\.jti, expires_at = EXCLUDED\.expires_at 
+				RETURNING id, user_id, jti, created_at, expires_at
+			`).
 			WithArgs(payload.UserID, payload.Jti, payload.ExpiresAt).
 			WillReturnError(fmt.Errorf("database connection error"))
 
-		err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
+		err := store.UpsertRefreshToken(context.Background(), payload)
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "unexpected error updating refresh_token with user_id: '1'")
+		assert.NotEqual(t, err, sql.ErrNoRows)
+
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+
+	t.Run("conflict error on upsert", func(t *testing.T) {
+		mock.ExpectQuery(`
+				INSERT INTO refresh_tokens \(user_id, jti, expires_at\) 
+				VALUES \(\$1, \$2, \$3\) 
+				ON CONFLICT \(user_id\) 
+				DO UPDATE 
+				SET jti = EXCLUDED\.jti, expires_at = EXCLUDED\.expires_at 
+				RETURNING id, user_id, jti, created_at, expires_at
+			`).
+			WithArgs(payload.UserID, payload.Jti, payload.ExpiresAt).
+			WillReturnError(fmt.Errorf("unique constraint violation"))
+
+		err := store.UpsertRefreshToken(context.Background(), payload)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "unique constraint violation")
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -132,12 +153,19 @@ func TestUpdateRefreshTokenByUserID(t *testing.T) {
 	})
 
 	t.Run("successfully update refresh token", func(t *testing.T) {
-		mock.ExpectQuery(`UPDATE refresh_tokens SET jti = \$2, expires_at = \$3 WHERE user_id = \$1 RETURNING id, user_id, jti, created_at, expires_at`).
+		mock.ExpectQuery(`
+				INSERT INTO refresh_tokens \(user_id, jti, expires_at\) 
+				VALUES \(\$1, \$2, \$3\) 
+				ON CONFLICT \(user_id\) 
+				DO UPDATE 
+				SET jti = EXCLUDED\.jti, expires_at = EXCLUDED\.expires_at 
+				RETURNING id, user_id, jti, created_at, expires_at
+			`).
 			WithArgs(payload.UserID, payload.Jti, payload.ExpiresAt).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "jti", "created_at", "expires_at"}).
 				AddRow(1, payload.UserID, payload.Jti, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), payload.ExpiresAt))
 
-		err := store.UpdateRefreshTokenByUserID(context.Background(), payload)
+		err := store.UpsertRefreshToken(context.Background(), payload)
 
 		assert.NoError(t, err)
 

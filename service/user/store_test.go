@@ -36,7 +36,6 @@ func TestCreateUser(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Zero(t, id)
-		assert.Contains(t, err.Error(), "unexpected error")
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -90,7 +89,7 @@ func TestGetUserByID(t *testing.T) {
 
 		assert.Nil(t, user)
 		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "no row found with id: '1'")
+		assert.Equal(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -106,7 +105,7 @@ func TestGetUserByID(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Zero(t, user)
-		assert.Contains(t, err.Error(), "unexpected error getting user with id: '1'")
+		assert.NotEqual(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -114,7 +113,7 @@ func TestGetUserByID(t *testing.T) {
 	})
 
 	t.Run("successfully get user by ID", func(t *testing.T) {
-		mock.ExpectQuery("SELECT \\* FROM users WHERE id = \\$1 AND deleted_at IS null").
+		mock.ExpectQuery("SELECT id, username, email, created_at, updated_at, deleted_at FROM users WHERE id = \\$1 AND deleted_at IS null").
 			WithArgs(1).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "username", "email", "created_at", "updated_at", "deleted_at"}).
 				AddRow(1, "johndoe", "johndoe@email.com", expectedCreatedAt, nil, nil))
@@ -155,7 +154,7 @@ func TestGetUserByEmail(t *testing.T) {
 
 		assert.Nil(t, user)
 		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "no row found with email: 'johndoe@email.com'")
+		assert.Equal(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -171,7 +170,7 @@ func TestGetUserByEmail(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Zero(t, user)
-		assert.Contains(t, err.Error(), "unexpected error getting user with email: 'johndoe@email.com'")
+		assert.NotEqual(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -179,7 +178,7 @@ func TestGetUserByEmail(t *testing.T) {
 	})
 
 	t.Run("successfully get user by ID", func(t *testing.T) {
-		mock.ExpectQuery("SELECT \\* FROM users WHERE email = \\$1 AND deleted_at IS null").
+		mock.ExpectQuery("SELECT id, username, email, created_at, updated_at, deleted_at FROM users WHERE email = \\$1 AND deleted_at IS null").
 			WithArgs("johndoe@email.com").
 			WillReturnRows(sqlmock.NewRows([]string{"id", "username", "email", "created_at", "updated_at", "deleted_at"}).
 				AddRow(1, "johndoe", "johndoe@email.com", expectedCreatedAt, nil, nil))
@@ -239,7 +238,7 @@ func TestUpdateBook(t *testing.T) {
 
 		assert.Nil(t, id)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no row found with id: '999'")
+		assert.Equal(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -264,7 +263,7 @@ func TestUpdateBook(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Zero(t, id)
-		assert.Contains(t, err.Error(), "unexpected error updating user with id: '1'")
+		assert.NotEqual(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -324,7 +323,7 @@ func TestDeleteByID(t *testing.T) {
 
 		assert.Equal(t, id, 0)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no row found with id: '1'")
+		assert.Equal(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -340,7 +339,7 @@ func TestDeleteByID(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Zero(t, id)
-		assert.Contains(t, err.Error(), "unexpected error deleting user with id: '1'")
+		assert.NotEqual(t, err, sql.ErrNoRows)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)

@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 
@@ -32,7 +33,6 @@ func NewAuthHandler(
 
 func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 	var requestPayload types.UserLoginPayload
-
 	if err := utils.ParseJSON(r, &requestPayload); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err, "HandleUserLogin", "User sent request with an invalid JSON", "Body is not a valid json")
 		return
@@ -50,6 +50,10 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userStore.GetByEmail(r.Context(), requestPayload.Email)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No user found with email %s", requestPayload.Email)})
+			return
+		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "Failed get user by email from database", "An unexpected error occurred")
 		return
 	}
@@ -59,9 +63,28 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
 	}
 
-	refreshToken, err := utils.CreateJWT(user.ID, "", "", config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds, h.UUIDGen)
+	refreshToken, err := utils.CreateJWT(user.ID, user.Username, user.Email, config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds, h.UUIDGen)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
+	}
+
+	refreshTokenClaims, err := utils.VerifyJWT(refreshToken, config.Envs.JWTSecret)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "Failed to parse the new refresh token", "An unexpected error occurred")
+		return
+	}
+
+	err = h.authStore.UpsertRefreshToken(
+		r.Context(),
+		types.UpdateRefreshTokenPayload{
+			UserID:    refreshTokenClaims.UserID,
+			Jti:       refreshTokenClaims.RegisteredClaims.ID,
+			ExpiresAt: refreshTokenClaims.RegisteredClaims.ExpiresAt.Time,
+		},
+	)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "Failed to insert refresh token", "Internal Server Error")
+		return
 	}
 
 	utils.WriteJSON(w, http.StatusOK, map[string]string{"access_token": accessToken, "refresh_token": refreshToken})
@@ -69,7 +92,6 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request) {
 	var requestPayload types.RefreshTokenPayload
-
 	if err := utils.ParseJSON(r, &requestPayload); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err, "HandleUserLogin", "User sent request with an invalid JSON", "Body is not a valid json")
 		return
@@ -85,16 +107,18 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	claims, err := utils.VerifyJWT(requestPayload.AccessToken, config.Envs.JWTSecret)
-	fmt.Printf("Claims: %+v, Error: %v\n", claims, err)
+	claims, err := utils.VerifyJWT(requestPayload.RefreshToken, config.Envs.JWTSecret)
 	if err != nil {
 		utils.WriteError(w, http.StatusUnauthorized, err, "HandleRefreshToken", "User sent an invalid or expired refresh token", "Refresh token is invalid or has been expired")
 		return
 	}
 
 	storedToken, err := h.authStore.GetRefreshTokenByUserID(r.Context(), claims.UserID)
-	fmt.Printf("storedToken: %+v, Error: %v\n", storedToken, err)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			utils.WriteJSON(w, http.StatusNotFound, map[string]string{"error": fmt.Sprintf("No refresh token found with user ID %d", claims.UserID)})
+			return
+		}
 		utils.WriteError(w, http.StatusUnauthorized, err, "HandleRefreshToken", "Failed get refresh token by user ID from database", "Unauthorized")
 		return
 	}
@@ -109,7 +133,7 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
 	}
 
-	newRefreshToken, err := utils.CreateJWT(claims.UserID, "", "", config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds, h.UUIDGen)
+	newRefreshToken, err := utils.CreateJWT(claims.UserID, claims.Username, claims.Email, config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds, h.UUIDGen)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
 	}
@@ -120,11 +144,11 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	err = h.authStore.UpdateRefreshTokenByUserID(
+	err = h.authStore.UpsertRefreshToken(
 		r.Context(),
 		types.UpdateRefreshTokenPayload{
 			UserID:    newRefreshTokenClaims.UserID,
-			Jti:       newRefreshTokenClaims.ID,
+			Jti:       newRefreshTokenClaims.RegisteredClaims.ID,
 			ExpiresAt: newRefreshTokenClaims.RegisteredClaims.ExpiresAt.Time,
 		})
 	if err != nil {

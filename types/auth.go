@@ -7,7 +7,7 @@ import (
 
 type AuthStore interface {
 	GetRefreshTokenByUserID(ctx context.Context, userID int) (*RefreshToken, error)
-	UpdateRefreshTokenByUserID(ctx context.Context, payload UpdateRefreshTokenPayload) error
+	UpsertRefreshToken(ctx context.Context, payload UpdateRefreshTokenPayload) error
 }
 
 type UserLoginPayload struct {
@@ -21,7 +21,7 @@ type UserLoginResponse struct {
 }
 
 type RefreshTokenPayload struct {
-	AccessToken string `json:"access_token" validate:"required"`
+	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
 type RefreshToken struct {
