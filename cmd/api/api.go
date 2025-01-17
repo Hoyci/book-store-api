@@ -48,7 +48,7 @@ func (s *APIServer) SetupRouter(
 	subrouter.HandleFunc("/auth/refresh", authHandler.HandleRefreshToken).Methods(http.MethodPost)
 
 	subrouter.HandleFunc("/books", bookHandler.HandleCreateBook).Methods(http.MethodPost)
-	subrouter.HandleFunc("/books/{id}", bookHandler.HandleGetBookByID).Methods(http.MethodGet)
+	subrouter.Handle("/books/{id}", utils.AuthMiddleware(http.HandlerFunc(bookHandler.HandleGetBookByID))).Methods(http.MethodGet)
 	subrouter.HandleFunc("/books/{id}", bookHandler.HandleUpdateBookByID).Methods(http.MethodPut)
 	subrouter.HandleFunc("/books/{id}", bookHandler.HandleDeleteBookByID).Methods(http.MethodDelete)
 
