@@ -8,18 +8,21 @@ import (
 	"github.com/hoyci/book-store-api/types"
 )
 
-type CustomClaims struct {
-	ID       string `json:"id"`
-	UserID   int    `json:"userId"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	jwt.RegisteredClaims
+func CreateJWTFromClaims(claims types.CustomClaims, secretKey string) (string, error) {
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	signedToken, err := token.SignedString([]byte(secretKey))
+	if err != nil {
+		return "", fmt.Errorf("error signing token: %w", err)
+	}
+
+	return signedToken, nil
 }
 
 func CreateJWT(userID int, username string, email string, secretKey string, expTimeInSeconds int64, uuidGen types.UUIDGenerator) (string, error) {
 	jti := uuidGen.New()
 
-	claims := CustomClaims{
+	claims := types.CustomClaims{
 		UserID:   userID,
 		Username: username,
 		Email:    email,
@@ -41,8 +44,8 @@ func CreateJWT(userID int, username string, email string, secretKey string, expT
 	return signedToken, nil
 }
 
-func VerifyJWT(tokenString, secretKey string) (*CustomClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+func VerifyJWT(tokenString, secretKey string) (*types.CustomClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &types.CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
@@ -53,7 +56,7 @@ func VerifyJWT(tokenString, secretKey string) (*CustomClaims, error) {
 		return nil, fmt.Errorf("error parsing token: %w", err)
 	}
 
-	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
+	if claims, ok := token.Claims.(*types.CustomClaims); ok && token.Valid {
 		return claims, nil
 	}
 	return nil, fmt.Errorf("invalid token")

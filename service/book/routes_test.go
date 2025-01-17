@@ -12,8 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/cmd/api"
+	"github.com/hoyci/book-store-api/config"
 	"github.com/hoyci/book-store-api/service/book"
 	"github.com/hoyci/book-store-api/types"
 	"github.com/hoyci/book-store-api/utils"
@@ -46,6 +48,23 @@ func (m *MockBookStore) DeleteByID(ctx context.Context, id int) (int, error) {
 		return val, args.Error(1)
 	}
 	return 0, args.Error(1)
+}
+
+func generateTestToken(userID int, username, email string) string {
+	claims := types.CustomClaims{
+		ID:       "mocked-id",
+		UserID:   userID,
+		Username: username,
+		Email:    email,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: &jwt.NumericDate{Time: time.Now().Add(1 * time.Hour)},
+		},
+	}
+	token, err := utils.CreateJWTFromClaims(claims, config.Envs.JWTSecret)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to generate test token: %v", err))
+	}
+	return token
 }
 
 func TestHandleCreateBook(t *testing.T) {
@@ -211,10 +230,12 @@ func TestHandleGetBookByID(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when call endpoint with wrong book ID", func(t *testing.T) {
+		token := generateTestToken(1, "JohnDoe", "johndoe@example.com")
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
 		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/johndoe", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -234,12 +255,14 @@ func TestHandleGetBookByID(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when call endpoint with a non-existent book ID", func(t *testing.T) {
+		token := generateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
 		mockBookStore.On("GetByID", mock.Anything, 1).Return(&types.Book{}, sql.ErrNoRows)
 
 		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/1", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -259,6 +282,7 @@ func TestHandleGetBookByID(t *testing.T) {
 	})
 
 	t.Run("it should return succssefully status and body when call endpoint with valid body", func(t *testing.T) {
+		token := generateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
@@ -277,6 +301,7 @@ func TestHandleGetBookByID(t *testing.T) {
 		}, nil)
 
 		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/1", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
