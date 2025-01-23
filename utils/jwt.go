@@ -5,8 +5,26 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/hoyci/book-store-api/config"
 	"github.com/hoyci/book-store-api/types"
 )
+
+func GenerateTestToken(userID int, username, email string) string {
+	claims := types.CustomClaims{
+		ID:       "mocked-id",
+		UserID:   userID,
+		Username: username,
+		Email:    email,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: &jwt.NumericDate{Time: time.Now().Add(1 * time.Hour)},
+		},
+	}
+	token, err := CreateJWTFromClaims(claims, config.Envs.JWTSecret)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to generate test token: %v", err))
+	}
+	return token
+}
 
 func CreateJWTFromClaims(claims types.CustomClaims, secretKey string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

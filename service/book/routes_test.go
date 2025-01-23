@@ -12,10 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/cmd/api"
-	"github.com/hoyci/book-store-api/config"
 	"github.com/hoyci/book-store-api/service/book"
 	"github.com/hoyci/book-store-api/types"
 	"github.com/hoyci/book-store-api/utils"
@@ -50,23 +48,6 @@ func (m *MockBookStore) DeleteByID(ctx context.Context, id int) (int, error) {
 	return 0, args.Error(1)
 }
 
-func generateTestToken(userID int, username, email string) string {
-	claims := types.CustomClaims{
-		ID:       "mocked-id",
-		UserID:   userID,
-		Username: username,
-		Email:    email,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: &jwt.NumericDate{Time: time.Now().Add(1 * time.Hour)},
-		},
-	}
-	token, err := utils.CreateJWTFromClaims(claims, config.Envs.JWTSecret)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to generate test token: %v", err))
-	}
-	return token
-}
-
 func TestHandleCreateBook(t *testing.T) {
 	setupTestServer := func() (*MockBookStore, *httptest.Server, *mux.Router) {
 		mockBookStore := new(MockBookStore)
@@ -78,11 +59,13 @@ func TestHandleCreateBook(t *testing.T) {
 	}
 
 	t.Run("it should throw an error when body is not a valid JSON", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
 		invalidBody := bytes.NewReader([]byte("INVALID JSON"))
 		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/books", invalidBody)
+		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -103,6 +86,7 @@ func TestHandleCreateBook(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when body is a valid JSON but missing key", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
@@ -117,6 +101,7 @@ func TestHandleCreateBook(t *testing.T) {
 		marshalled, _ := json.Marshal(payload)
 
 		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/books", bytes.NewBuffer(marshalled))
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -136,6 +121,7 @@ func TestHandleCreateBook(t *testing.T) {
 	})
 
 	t.Run("it should throw a database insert error", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
@@ -153,6 +139,7 @@ func TestHandleCreateBook(t *testing.T) {
 		marshalled, _ := json.Marshal(payload)
 
 		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/books", bytes.NewBuffer(marshalled))
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -168,6 +155,7 @@ func TestHandleCreateBook(t *testing.T) {
 	})
 
 	t.Run("it should successfully create a book", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
@@ -185,6 +173,7 @@ func TestHandleCreateBook(t *testing.T) {
 		marshalled, _ := json.Marshal(payload)
 
 		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/books", bytes.NewBuffer(marshalled))
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -230,7 +219,7 @@ func TestHandleGetBookByID(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when call endpoint with wrong book ID", func(t *testing.T) {
-		token := generateTestToken(1, "JohnDoe", "johndoe@example.com")
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
@@ -255,7 +244,7 @@ func TestHandleGetBookByID(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when call endpoint with a non-existent book ID", func(t *testing.T) {
-		token := generateTestToken(1, "JohnDoe", "johndoe@example.com")
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
@@ -282,7 +271,7 @@ func TestHandleGetBookByID(t *testing.T) {
 	})
 
 	t.Run("it should return succssefully status and body when call endpoint with valid body", func(t *testing.T) {
-		token := generateTestToken(1, "JohnDoe", "johndoe@example.com")
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
@@ -359,10 +348,12 @@ func TestHandleUpdateBookByID(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when call endpoint with wrong book ID", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
 		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/johndoe", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -382,11 +373,13 @@ func TestHandleUpdateBookByID(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when no fields are provided for update", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
 		emptyPayload := `{}`
 		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(emptyPayload))
+		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -407,11 +400,13 @@ func TestHandleUpdateBookByID(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when body is invalid", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
 		invalidPayload := `{"name": ""}`
 		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(invalidPayload))
+		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -432,6 +427,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when call endpoint with a non-existent user ID", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
@@ -443,6 +439,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 			"image_url": "http://example.com/go_updated.jpg"
 		}`
 		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(validPayload))
+		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -463,6 +460,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 	})
 
 	t.Run("it should return successfully status and body when the book is updated", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
@@ -486,6 +484,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 			"image_url": "http://example.com/go_updated.jpg"
 		}`
 		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(validPayload))
+		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -544,10 +543,12 @@ func TestHandleDeleteBookByID(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when call endpoint with wrong ID", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
 		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/johndoe", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -567,12 +568,14 @@ func TestHandleDeleteBookByID(t *testing.T) {
 	})
 
 	t.Run("it should throw an error when call endpoint with a non-existent user ID", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
 		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(int(0), sql.ErrNoRows)
 
 		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -592,12 +595,14 @@ func TestHandleDeleteBookByID(t *testing.T) {
 	})
 
 	t.Run("it should return succssefully status and body when call endpoint with valid body", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
 		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(int(1), nil)
 
 		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)

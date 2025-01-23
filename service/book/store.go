@@ -20,10 +20,33 @@ func NewBookStore(db *sql.DB) *BookStore {
 }
 
 func (s *BookStore) Create(ctx context.Context, book types.CreateBookPayload) (int, error) {
-	var id int
-	err := s.db.QueryRowContext(
+	var bookID int
+	claimsCtx, ok := utils.GetClaimsFromContext(ctx)
+	if !ok {
+		return 0, fmt.Errorf("failed to retrieve userID from context")
+	}
+	userID := claimsCtx.UserID
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		} else {
+			_ = tx.Commit()
+		}
+	}()
+
+	err = tx.QueryRowContext(
 		ctx,
-		"INSERT INTO books (name, description, author, genres, release_year, number_of_pages, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
+		`
+        INSERT INTO books (name, description, author, genres, release_year, number_of_pages, image_url) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id
+        `,
 		book.Name,
 		book.Description,
 		book.Author,
@@ -31,32 +54,61 @@ func (s *BookStore) Create(ctx context.Context, book types.CreateBookPayload) (i
 		book.ReleaseYear,
 		book.NumberOfPages,
 		book.ImageUrl,
-	).Scan(&id)
-
+	).Scan(&bookID)
 	if err != nil {
 		return 0, err
 	}
 
-	return id, nil
+	_, err = tx.ExecContext(
+		ctx,
+		`
+        INSERT INTO users_books (user_id, book_id) 
+        VALUES ($1, $2)
+        `,
+		userID,
+		bookID,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	return bookID, nil
 }
 
-func (s *BookStore) GetByID(ctx context.Context, id int) (*types.Book, error) {
+func (s *BookStore) GetByID(ctx context.Context, bookID int) (*types.Book, error) {
 	book := &types.Book{}
+	claimsCtx, ok := utils.GetClaimsFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("failed to retrieve userID from context")
+	}
+	userID := claimsCtx.UserID
 
-	err := s.db.QueryRowContext(ctx, "SELECT * FROM books WHERE id = $1 AND deleted_at IS null", id).
-		Scan(
-			&book.ID,
-			&book.Name,
-			&book.Description,
-			&book.Author,
-			pq.Array(&book.Genres),
-			&book.ReleaseYear,
-			&book.NumberOfPages,
-			&book.ImageUrl,
-			&book.CreatedAt,
-			&book.UpdatedAt,
-			&book.DeletedAt,
-		)
+	err := s.db.QueryRowContext(
+		ctx,
+		`
+		SELECT 
+		b.* 
+		FROM books b
+		INNER JOIN users_books ub ON ub.book_id = b.id
+		WHERE b.id = $1
+		AND ub.user_id = $2
+		AND b.deleted_at IS NULL;
+		`,
+		bookID,
+		userID,
+	).Scan(
+		&book.ID,
+		&book.Name,
+		&book.Description,
+		&book.Author,
+		pq.Array(&book.Genres),
+		&book.ReleaseYear,
+		&book.NumberOfPages,
+		&book.ImageUrl,
+		&book.CreatedAt,
+		&book.UpdatedAt,
+		&book.DeletedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -64,10 +116,16 @@ func (s *BookStore) GetByID(ctx context.Context, id int) (*types.Book, error) {
 	return book, nil
 }
 
-func (s *BookStore) UpdateByID(ctx context.Context, id int, newBook types.UpdateBookPayload) (*types.Book, error) {
-	query := fmt.Sprintf("UPDATE books SET updated_at = '%s', ", time.Now().Format("2006-01-02 15:04:05"))
-	args := []any{}
-	counter := 1
+func (s *BookStore) UpdateByID(ctx context.Context, bookID int, newBook types.UpdateBookPayload) (*types.Book, error) {
+	claimsCtx, ok := utils.GetClaimsFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("failed to retrieve userID from context")
+	}
+	userID := claimsCtx.UserID
+
+	query := "UPDATE books SET updated_at = $1, "
+	args := []any{time.Now()}
+	counter := 2
 
 	fields := []struct {
 		name  string
@@ -94,12 +152,20 @@ func (s *BookStore) UpdateByID(ctx context.Context, id int, newBook types.Update
 		}
 	}
 
-	if len(args) == 0 {
-		return nil, fmt.Errorf("no fields to update for book with ID %d", id)
+	if len(args) == 1 {
+		return nil, fmt.Errorf("no fields to update for book with ID %d", bookID)
 	}
 
-	query = query[:len(query)-2] + fmt.Sprintf(" WHERE id = $%d RETURNING id, name, description, author, genres, release_year, number_of_pages, image_url, created_at, updated_at", counter)
-	args = append(args, id)
+	query = query[:len(query)-2] + fmt.Sprintf(`
+		WHERE id IN (
+			SELECT b.id
+			FROM books b
+			INNER JOIN users_books ub ON ub.book_id = b.id
+			WHERE b.id = $%d AND ub.user_id = $%d
+		) 
+		RETURNING id, name, description, author, genres, release_year, number_of_pages, image_url, created_at, updated_at
+	`, counter, counter+1)
+	args = append(args, bookID, userID)
 
 	updatedBook := &types.Book{}
 	err := s.db.QueryRowContext(ctx, query, args...).Scan(
@@ -121,12 +187,30 @@ func (s *BookStore) UpdateByID(ctx context.Context, id int, newBook types.Update
 	return updatedBook, nil
 }
 
-func (s *BookStore) DeleteByID(ctx context.Context, id int) (int, error) {
+func (s *BookStore) DeleteByID(ctx context.Context, bookID int) (int, error) {
 	var returnedID int
+	claimsCtx, ok := utils.GetClaimsFromContext(ctx)
+	if !ok {
+		return 0, fmt.Errorf("failed to retrieve userID from context")
+	}
+	userID := claimsCtx.UserID
+
 	err := s.db.QueryRowContext(
 		ctx,
-		"UPDATE books SET deleted_at = $2 WHERE id = $1 RETURNING id",
-		id,
+		`
+		UPDATE books
+		SET deleted_at = $3
+		WHERE id IN (
+			SELECT b.id
+			FROM books b
+			INNER JOIN users_books ub ON ub.book_id = b.id
+			WHERE b.id = $1
+			AND ub.user_id = $2
+		)
+		RETURNING id;
+		`,
+		bookID,
+		userID,
 		time.Now(),
 	).Scan(&returnedID)
 	if err != nil {
