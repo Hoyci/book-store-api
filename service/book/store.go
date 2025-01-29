@@ -116,6 +116,57 @@ func (s *BookStore) GetByID(ctx context.Context, bookID int) (*types.Book, error
 	return book, nil
 }
 
+func (s *BookStore) GetMany(ctx context.Context) ([]*types.Book, error) {
+	claimsCtx, ok := utils.GetClaimsFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("failed to retrieve userID from context")
+	}
+	userID := claimsCtx.UserID
+
+	rows, err := s.db.QueryContext(
+		ctx,
+		`
+		SELECT b.*
+		FROM books b
+		INNER JOIN users_books ub  ON
+		ub.book_id = b.id
+		WHERE ub.user_id = $1 
+		AND b.deleted_at IS NULL;
+		`,
+		userID,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	books := []*types.Book{}
+
+	for rows.Next() {
+		book := &types.Book{}
+		err := rows.Scan(
+			&book.ID,
+			&book.Name,
+			&book.Description,
+			&book.Author,
+			pq.Array(&book.Genres),
+			&book.ReleaseYear,
+			&book.NumberOfPages,
+			&book.ImageUrl,
+			&book.CreatedAt,
+			&book.UpdatedAt,
+			&book.DeletedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		books = append(books, book)
+	}
+
+	return books, nil
+}
+
 func (s *BookStore) UpdateByID(ctx context.Context, bookID int, newBook types.UpdateBookPayload) (*types.Book, error) {
 	claimsCtx, ok := utils.GetClaimsFromContext(ctx)
 	if !ok {

@@ -8,6 +8,7 @@ import (
 type BookStore interface {
 	Create(ctx context.Context, book CreateBookPayload) (int, error)
 	GetByID(ctx context.Context, id int) (*Book, error)
+	GetMany(ctx context.Context) ([]*Book, error)
 	UpdateByID(ctx context.Context, id int, book UpdateBookPayload) (*Book, error)
 	DeleteByID(ctx context.Context, id int) (int, error)
 }

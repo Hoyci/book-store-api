@@ -3,6 +3,7 @@ package book
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"regexp"
 	"testing"
@@ -119,8 +120,8 @@ func TestCreateBook(t *testing.T) {
 		id, err := store.Create(ctx, book)
 
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "context canceled")
 		assert.Zero(t, id)
+		assert.True(t, errors.Is(err, context.Canceled))
 	})
 
 	t.Run("rollback on intermediate failure", func(t *testing.T) {
@@ -192,6 +193,21 @@ func TestGetBookByID(t *testing.T) {
 		assert.Zero(t, id)
 	})
 
+	t.Run("context cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(ctx)
+		cancel()
+
+		books, err := store.GetByID(ctx, 1)
+
+		assert.Error(t, err)
+		assert.Nil(t, books)
+		assert.True(t, errors.Is(err, context.Canceled))
+
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+
 	t.Run("database did not find any row", func(t *testing.T) {
 		mock.ExpectQuery(regexp.QuoteMeta(`
 		SELECT 
@@ -216,7 +232,7 @@ func TestGetBookByID(t *testing.T) {
 		}
 	})
 
-	t.Run("database unexpected error", func(t *testing.T) {
+	t.Run("database connection error", func(t *testing.T) {
 		mock.ExpectQuery(regexp.QuoteMeta(`
 				SELECT 
 				b.* 
@@ -227,13 +243,13 @@ func TestGetBookByID(t *testing.T) {
 				AND b.deleted_at IS NULL;
 			`)).
 			WithArgs(1, 1).
-			WillReturnError(fmt.Errorf("database connection error"))
+			WillReturnError(sql.ErrConnDone)
 
 		book, err := store.GetByID(ctx, 1)
 
 		assert.Error(t, err)
 		assert.Zero(t, book)
-		assert.NotEqual(t, err, sql.ErrNoRows)
+		assert.True(t, errors.Is(err, sql.ErrConnDone))
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -263,6 +279,134 @@ func TestGetBookByID(t *testing.T) {
 		assert.Equal(t, expectedID, book.ID)
 		assert.Equal(t, "Go Programming", book.Name)
 		assert.Equal(t, expectedCreatedAt, book.CreatedAt)
+
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+}
+
+func TestGetManyBooks(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	store := NewBookStore(db)
+	expectedCreatedAt := time.Now()
+
+	ctx := utils.SetClaimsToContext(context.Background(), &types.CustomClaims{
+		ID:               "ID-CRAZY",
+		UserID:           1,
+		Username:         "johndoe",
+		Email:            "johndoe@email.com",
+		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24))},
+	})
+
+	t.Run("missing userID in context", func(t *testing.T) {
+		ctx := context.Background()
+
+		id, err := store.GetMany(ctx)
+
+		assert.Error(t, err)
+		assert.Equal(t, "failed to retrieve userID from context", err.Error())
+		assert.Zero(t, id)
+	})
+
+	t.Run("context cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(ctx)
+		cancel()
+
+		books, err := store.GetMany(ctx)
+
+		assert.Error(t, err)
+		assert.Nil(t, books)
+		assert.True(t, errors.Is(err, context.Canceled))
+
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+
+	t.Run("database connection error", func(t *testing.T) {
+		mock.ExpectQuery(regexp.QuoteMeta(`
+				SELECT b.*
+				FROM books b
+				INNER JOIN users_books ub  ON
+				ub.book_id = b.id
+				WHERE ub.user_id = $1 
+				AND b.deleted_at IS NULL;
+			`)).
+			WithArgs(1).
+			WillReturnError(sql.ErrConnDone)
+
+		book, err := store.GetMany(ctx)
+
+		assert.Error(t, err)
+		assert.Zero(t, book)
+		assert.True(t, errors.Is(err, sql.ErrConnDone))
+
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+
+	t.Run("empty result set (no rows)", func(t *testing.T) {
+		mock.ExpectQuery(regexp.QuoteMeta(`
+				SELECT b.*
+				FROM books b
+				INNER JOIN users_books ub  ON
+				ub.book_id = b.id
+				WHERE ub.user_id = $1 
+				AND b.deleted_at IS NULL;
+			`)).
+			WithArgs(1).
+			WillReturnRows(sqlmock.NewRows([]string{
+				"id", "name", "description", "author", "genres", "release_year", "number_of_pages", "image_url", "created_at", "updated_at", "deleted_at",
+			}))
+
+		books, err := store.GetMany(ctx)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, books)
+		assert.Equal(t, 0, len(books))
+
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("unmet expectations: %v", err)
+		}
+	})
+
+	t.Run("successfully get user books", func(t *testing.T) {
+		mock.ExpectQuery(regexp.QuoteMeta(`
+			SELECT b.*
+			FROM books b
+			INNER JOIN users_books ub ON ub.book_id = b.id
+			WHERE ub.user_id = $1 
+			AND b.deleted_at IS NULL;
+		`)).
+			WithArgs(1).
+			WillReturnRows(
+				sqlmock.NewRows([]string{
+					"id", "name", "description", "author", "genres", "release_year", "number_of_pages", "image_url", "created_at", "updated_at", "deleted_at",
+				}).
+					AddRow(1, "Go Programming", "A book about Go programming", "John Doe", pq.Array([]string{"Programming"}), 2024, 300, "http://example.com/go.jpg", expectedCreatedAt, nil, nil).
+					AddRow(2, "Clean Code", "A book about writing clean code", "Robert C. Martin", pq.Array([]string{"Programming", "Best Practices"}), 2008, 464, "http://example.com/clean-code.jpg", expectedCreatedAt, nil, nil),
+			)
+
+		books, err := store.GetMany(ctx)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, books)
+		assert.Equal(t, 2, len(books))
+
+		assert.Equal(t, 1, books[0].ID)
+		assert.Equal(t, "Go Programming", books[0].Name)
+		assert.Equal(t, "John Doe", books[0].Author)
+
+		assert.Equal(t, 2, books[1].ID)
+		assert.Equal(t, "Clean Code", books[1].Name)
+		assert.Equal(t, "Robert C. Martin", books[1].Author)
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
@@ -458,7 +602,7 @@ func TestDeleteByID(t *testing.T) {
 		}
 	})
 
-	t.Run("database unexpected error", func(t *testing.T) {
+	t.Run("database connection error", func(t *testing.T) {
 		mock.ExpectQuery(regexp.QuoteMeta(`
 			UPDATE books
 			SET deleted_at = $3
@@ -472,13 +616,13 @@ func TestDeleteByID(t *testing.T) {
 			RETURNING id;
 		`)).
 			WithArgs(1, 1, sqlmock.AnyArg()).
-			WillReturnError(fmt.Errorf("database connection error"))
+			WillReturnError(sql.ErrConnDone)
 
 		id, err := store.DeleteByID(ctx, 1)
 
 		assert.Error(t, err)
 		assert.Zero(t, id)
-		assert.NotEqual(t, err, sql.ErrNoRows)
+		assert.True(t, errors.Is(err, sql.ErrConnDone))
 
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Errorf("unmet expectations: %v", err)
