@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,6 +34,11 @@ func (m *MockBookStore) Create(ctx context.Context, book types.CreateBookPayload
 func (m *MockBookStore) GetByID(ctx context.Context, id int) (*types.Book, error) {
 	args := m.Called(ctx, id)
 	return args.Get(0).(*types.Book), args.Error(1)
+}
+
+func (m *MockBookStore) GetMany(ctx context.Context) ([]*types.Book, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]*types.Book), args.Error(1)
 }
 
 func (m *MockBookStore) UpdateByID(ctx context.Context, id int, newBook types.UpdateBookPayload) (*types.Book, error) {
@@ -203,21 +209,6 @@ func TestHandleGetBookByID(t *testing.T) {
 		return mockBookStore, ts, router
 	}
 
-	t.Run("it should throw an error when call endpoint without book ID", func(t *testing.T) {
-		_, ts, router := setupTestServer()
-		defer ts.Close()
-
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books", nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		res := w.Result()
-		defer res.Body.Close()
-
-		assert.Equal(t, http.StatusNotFound, res.StatusCode)
-	})
-
 	t.Run("it should throw an error when call endpoint with wrong book ID", func(t *testing.T) {
 		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		_, ts, router := setupTestServer()
@@ -270,12 +261,43 @@ func TestHandleGetBookByID(t *testing.T) {
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
+	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockBookStore.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool {
+
+			return ctx.Err() == context.Canceled
+		}), 1).Return(&types.Book{}, context.Canceled)
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/1", nil).WithContext(canceledCtx)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
 	t.Run("it should return succssefully status and body when call endpoint with valid body", func(t *testing.T) {
 		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
-		mockBookStore.On("GetByID", mock.Anything, 1).Return(&types.Book{
+		expectedBook := &types.Book{
 			ID:            1,
 			Name:          "Go Programming",
 			Description:   "A book about Go programming",
@@ -287,7 +309,9 @@ func TestHandleGetBookByID(t *testing.T) {
 			CreatedAt:     time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			DeletedAt:     nil,
 			UpdatedAt:     nil,
-		}, nil)
+		}
+
+		mockBookStore.On("GetByID", mock.Anything, 1).Return(expectedBook, nil)
 
 		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/1", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -319,6 +343,218 @@ func TestHandleGetBookByID(t *testing.T) {
 			"updated_at": null
 		}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
+	})
+}
+
+func TestHandleGetManyBooks(t *testing.T) {
+	setupTestServer := func() (*MockBookStore, *httptest.Server, *mux.Router) {
+		mockBookStore := new(MockBookStore)
+		mockBookHandler := book.NewBookHandler(mockBookStore)
+		apiServer := api.NewApiServer(":8080", nil)
+		router := apiServer.SetupRouter(nil, mockBookHandler, nil, nil)
+		ts := httptest.NewServer(router)
+		return mockBookStore, ts, router
+	}
+
+	t.Run("it should return error when database is not available", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("GetMany", mock.Anything).Return([]*types.Book{}, sql.ErrConnDone)
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+
+		expected := `{"error":"An unexpected error occurred"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should return error when a generic database error occur", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("GetMany", mock.Anything).Return([]*types.Book{}, errors.New("generic database error"))
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+
+		expected := `{"error":"An unexpected error occurred"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockBookStore.On("GetMany", mock.MatchedBy(func(ctx context.Context) bool {
+
+			return ctx.Err() == context.Canceled
+		})).Return([]*types.Book{}, context.Canceled)
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books", nil).WithContext(canceledCtx)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should return an empty array of books", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("GetMany", mock.Anything).Return([]*types.Book{}, nil)
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+
+		expected := `{"books":[]}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should return an array of books", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		expectedCreatedAt := time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC)
+
+		expectedBooks := []*types.Book{
+			{
+				ID:            1,
+				Name:          "Go Programming",
+				Description:   "A book about Go programming",
+				Author:        "John Doe",
+				Genres:        []string{"Programming"},
+				ReleaseYear:   2024,
+				NumberOfPages: 300,
+				ImageUrl:      "http://example.com/go.jpg",
+				CreatedAt:     expectedCreatedAt,
+				UpdatedAt:     nil,
+				DeletedAt:     nil,
+			},
+			{
+				ID:            2,
+				Name:          "Clean Code",
+				Description:   "A book about writing clean code",
+				Author:        "Robert C. Martin",
+				Genres:        []string{"Programming", "Best Practices"},
+				ReleaseYear:   2008,
+				NumberOfPages: 464,
+				ImageUrl:      "http://example.com/clean-code.jpg",
+				CreatedAt:     expectedCreatedAt,
+				UpdatedAt:     nil,
+				DeletedAt:     nil,
+			},
+		}
+
+		mockBookStore.On("GetMany", mock.Anything).Return(expectedBooks, nil)
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+
+		expectedJSON := `{
+			"books": [
+				{
+					"id": 1,
+					"name": "Go Programming",
+					"description": "A book about Go programming",
+					"author": "John Doe",
+					"genres": ["Programming"],
+					"release_year": 2024,
+					"number_of_pages": 300,
+					"image_url": "http://example.com/go.jpg",
+					"created_at": "0001-01-01T00:00:00Z",
+					"deleted_at": null,
+            		"updated_at": null
+				},
+				{
+					"id": 2,
+					"name": "Clean Code",
+					"description": "A book about writing clean code",
+					"author": "Robert C. Martin",
+					"genres": ["Programming", "Best Practices"],
+					"release_year": 2008,
+					"number_of_pages": 464,
+					"image_url": "http://example.com/clean-code.jpg",
+					"created_at": "0001-01-01T00:00:00Z",
+					"deleted_at": null,
+            		"updated_at": null
+				}
+			]
+		}`
+
+		assert.JSONEq(t, expectedJSON, string(responseBody))
+
+		mockBookStore.AssertExpectations(t)
 	})
 }
 

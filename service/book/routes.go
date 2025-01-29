@@ -1,7 +1,9 @@
 package book
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -76,15 +78,41 @@ func (h *BookHandler) HandleGetBookByID(w http.ResponseWriter, r *http.Request) 
 
 	book, err := h.bookStore.GetByID(r.Context(), id)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleGetBookByID", "Failed to get user by id from database", fmt.Sprintf("No book found with ID %d", id))
+		if errors.Is(err, context.Canceled) {
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled by client", "Request canceled")
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBookByID", "Failed to get user by id from database", "An unexpected error occurred")
+
+		if err == sql.ErrNoRows {
+			utils.WriteError(w, http.StatusNotFound, err, "HandleGetBookByID", "Failed to get book by id from database", fmt.Sprintf("No book found with ID %d", id))
+			return
+		}
+
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBookByID", "Failed to get book by id from database", "An unexpected error occurred")
 		return
 	}
 
 	utils.WriteJSON(w, http.StatusOK, book)
+}
+
+func (h *BookHandler) HandleGetBooks(w http.ResponseWriter, r *http.Request) {
+	books, err := h.bookStore.GetMany(r.Context())
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled by client", "Request canceled")
+			return
+		}
+
+		if err == sql.ErrConnDone {
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "Database connection failed", "An unexpected error occurred")
+			return
+		}
+
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", err.Error(), "An unexpected error occurred")
+		return
+	}
+
+	utils.WriteJSON(w, http.StatusOK, map[string][]*types.Book{"books": books})
 }
 
 func (h *BookHandler) HandleUpdateBookByID(w http.ResponseWriter, r *http.Request) {
@@ -139,10 +167,10 @@ func (h *BookHandler) HandleDeleteBookByID(w http.ResponseWriter, r *http.Reques
 	returnedID, err := h.bookStore.DeleteByID(r.Context(), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteBookByID", "Failed to delete user by id from database", fmt.Sprintf("No book found with ID %d", id))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteBookByID", "Failed to delete book by id from database", fmt.Sprintf("No book found with ID %d", id))
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteBookByID", "Failed to delete user by id from database", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteBookByID", "Failed to delete book by id from database", "An unexpected error occurred")
 		return
 	}
 

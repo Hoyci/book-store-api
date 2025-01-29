@@ -49,6 +49,7 @@ func (s *APIServer) SetupRouter(
 
 	subrouter.Handle("/books", utils.AuthMiddleware(http.HandlerFunc(bookHandler.HandleCreateBook))).Methods(http.MethodPost)
 	subrouter.Handle("/books/{id}", utils.AuthMiddleware(http.HandlerFunc(bookHandler.HandleGetBookByID))).Methods(http.MethodGet)
+	subrouter.Handle("/books", utils.AuthMiddleware(http.HandlerFunc(bookHandler.HandleGetBooks))).Methods(http.MethodGet)
 	subrouter.Handle("/books/{id}", utils.AuthMiddleware(http.HandlerFunc(bookHandler.HandleUpdateBookByID))).Methods(http.MethodPut)
 	subrouter.Handle("/books/{id}", utils.AuthMiddleware(http.HandlerFunc(bookHandler.HandleDeleteBookByID))).Methods(http.MethodDelete)
 
