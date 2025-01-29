@@ -32,11 +32,11 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	return json.NewEncoder(w).Encode(v)
 }
 
-func WriteError(w http.ResponseWriter, status int, err error, context string, errorMessage string, clientErrorMessage any) {
+func WriteError(w http.ResponseWriter, status int, err error, context string, clientErrorMessage any) {
 	Log.WithFields(logrus.Fields{
 		"error":   err.Error(),
 		"context": context,
-	}).Error(errorMessage)
+	}).Error(err.Error())
 
 	WriteJSON(
 		w,

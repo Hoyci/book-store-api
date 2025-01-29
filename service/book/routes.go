@@ -43,7 +43,7 @@ func NewBookHandler(bookStore types.BookStore) *BookHandler {
 func (h *BookHandler) HandleCreateBook(w http.ResponseWriter, r *http.Request) {
 	var payload types.CreateBookPayload
 	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateBook", "User sent request with an invalid JSON", "Body is not a valid json")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateBook", "Body is not a valid json")
 		return
 	}
 
@@ -53,13 +53,15 @@ func (h *BookHandler) HandleCreateBook(w http.ResponseWriter, r *http.Request) {
 			errorMessages = append(errorMessages, fmt.Sprintf("Field '%s' is invalid: %s", e.Field(), e.Tag()))
 		}
 
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateBook", "User sent a request containing JSON with information outside the permitted format", errorMessages)
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateBook", errorMessages)
 		return
 	}
 
 	id, err := h.bookStore.Create(r.Context(), payload)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateBook", "Failed to insert book into database", "An unexpected error occurred")
+		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
+		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateBook", "An unexpected error occurred")
 		return
 	}
 
@@ -72,23 +74,23 @@ func (h *BookHandler) HandleGetBookByID(w http.ResponseWriter, r *http.Request) 
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleGetBookByID", "User sent request with an invalid ID", "Book ID must be a positive integer")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleGetBookByID", "Book ID must be a positive integer")
 		return
 	}
 
 	book, err := h.bookStore.GetByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled by client", "Request canceled")
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
 			return
 		}
 
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleGetBookByID", "Failed to get book by id from database", fmt.Sprintf("No book found with ID %d", id))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleGetBookByID", fmt.Sprintf("No book found with ID %d", id))
 			return
 		}
 
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBookByID", "Failed to get book by id from database", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBookByID", "An unexpected error occurred")
 		return
 	}
 
@@ -99,16 +101,16 @@ func (h *BookHandler) HandleGetBooks(w http.ResponseWriter, r *http.Request) {
 	books, err := h.bookStore.GetMany(r.Context())
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled by client", "Request canceled")
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
 			return
 		}
 
 		if err == sql.ErrConnDone {
-			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "Database connection failed", "An unexpected error occurred")
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "An unexpected error occurred")
 			return
 		}
 
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", err.Error(), "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "An unexpected error occurred")
 		return
 	}
 
@@ -121,13 +123,13 @@ func (h *BookHandler) HandleUpdateBookByID(w http.ResponseWriter, r *http.Reques
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateBookByID", "User sent request with an invalid ID", "Book ID must be a positive integer")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateBookByID", "Book ID must be a positive integer")
 		return
 	}
 
 	var payload types.UpdateBookPayload
 	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateBookByID", "User sent request with an invalid JSON", "Body is not a valid json")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateBookByID", "Body is not a valid json")
 		return
 	}
 
@@ -137,17 +139,19 @@ func (h *BookHandler) HandleUpdateBookByID(w http.ResponseWriter, r *http.Reques
 			errorMessages = append(errorMessages, fmt.Sprintf("Field validation for '%s' failed on the '%s' tag", e.Field(), e.Tag()))
 		}
 
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateBookByID", "User sent a request with JSON outside the permitted format", errorMessages)
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateBookByID", errorMessages)
 		return
 	}
 
 	book, err := h.bookStore.UpdateByID(r.Context(), id, payload)
 	if err != nil {
+		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
+		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleUpdateBookByID", "Failed to update book by id in database", fmt.Sprintf("No book found with ID %d", id))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleUpdateBookByID", fmt.Sprintf("No book found with ID %d", id))
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateBookByID", "Failed to update book by id in database", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateBookByID", "An unexpected error occurred")
 		return
 	}
 
@@ -160,17 +164,19 @@ func (h *BookHandler) HandleDeleteBookByID(w http.ResponseWriter, r *http.Reques
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleDeleteBookByID", "User sent request with an invalid ID", "Book ID must be a positive integer")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleDeleteBookByID", "Book ID must be a positive integer")
 		return
 	}
 
 	returnedID, err := h.bookStore.DeleteByID(r.Context(), id)
 	if err != nil {
+		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
+		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteBookByID", "Failed to delete book by id from database", fmt.Sprintf("No book found with ID %d", id))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteBookByID", fmt.Sprintf("No book found with ID %d", id))
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteBookByID", "Failed to delete book by id from database", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteBookByID", "An unexpected error occurred")
 		return
 	}
 

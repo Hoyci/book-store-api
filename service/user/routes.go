@@ -44,7 +44,7 @@ func NewUserHandler(userStore types.UserStore) *UserHandler {
 func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 	var requestPayload types.CreateUserRequestPayload
 	if err := utils.ParseJSON(r, &requestPayload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateUser", "User sent request with an invalid JSON", "Body is not a valid json")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateUser", "Body is not a valid json")
 		return
 	}
 
@@ -54,13 +54,13 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 			errorMessages = append(errorMessages, fmt.Sprintf("Field '%s' is invalid: %s", e.Field(), e.Tag()))
 		}
 
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateUser", "User sent a request containing JSON with information outside the permitted format", errorMessages)
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateUser", errorMessages)
 		return
 	}
 
 	hashedPassword, err := utils.HashPassword(requestPayload.Password)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateUser", "An error occured during the hash password process", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateUser", "An unexpected error occurred")
 	}
 
 	var databasePayload = types.CreateUserDatabasePayload{
@@ -71,7 +71,8 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	_, err = h.userStore.Create(r.Context(), databasePayload)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateUser", "Failed to insert user into database", "An unexpected error occurred")
+		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateUser", "An unexpected error occurred")
 		return
 	}
 
@@ -84,17 +85,19 @@ func (h *UserHandler) HandleGetUserByID(w http.ResponseWriter, r *http.Request) 
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleGetUserByID", "User sent request with an invalid ID", "User ID must be a positive integer")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleGetUserByID", "User ID must be a positive integer")
 		return
 	}
 
 	user, err := h.userStore.GetByID(r.Context(), id)
 	if err != nil {
+		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
+		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", "Failed to get user by id from database", fmt.Sprintf("No user found with ID %d", id))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", fmt.Sprintf("No user found with ID %d", id))
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetUserByID", "Failed to get user by id from database", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetUserByID", "An unexpected error occurred")
 		return
 	}
 
@@ -107,13 +110,13 @@ func (h *UserHandler) HandleUpdateUserByID(w http.ResponseWriter, r *http.Reques
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateUserByID", "User sent request with an invalid ID", "User ID must be a positive integer")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateUserByID", "User ID must be a positive integer")
 		return
 	}
 
 	var payload types.UpdateUserPayload
 	if err := utils.ParseJSON(r, &payload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateUserByID", "User sent request with an invalid JSON", "Body is not a valid json")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateUserByID", "Body is not a valid json")
 		return
 	}
 
@@ -123,17 +126,19 @@ func (h *UserHandler) HandleUpdateUserByID(w http.ResponseWriter, r *http.Reques
 			errorMessages = append(errorMessages, fmt.Sprintf("Field validation for '%s' failed on the '%s' tag", e.Field(), e.Tag()))
 		}
 
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateUserByID", "User sent a request with JSON outside the permitted format", errorMessages)
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateUserByID", errorMessages)
 		return
 	}
 
 	user, err := h.userStore.UpdateByID(r.Context(), id, payload)
 	if err != nil {
+		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
+		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", "Failed to update user by id in database", fmt.Sprintf("No user found with ID %d", id))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", fmt.Sprintf("No user found with ID %d", id))
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateUserByID", "Failed to update user by id in database", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateUserByID", "An unexpected error occurred")
 		return
 	}
 
@@ -146,17 +151,19 @@ func (h *UserHandler) HandleDeleteUserByID(w http.ResponseWriter, r *http.Reques
 
 	id, err := strconv.Atoi(idStr)
 	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleDeleteUserByID", "User sent request with an invalid ID", "Book ID must be a positive integer")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleDeleteUserByID", "Book ID must be a positive integer")
 		return
 	}
 
 	returnedID, err := h.userStore.DeleteByID(r.Context(), id)
 	if err != nil {
+		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
+		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", "Failed to delete user by id from database", fmt.Sprintf("No user found with ID %d", id))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", fmt.Sprintf("No user found with ID %d", id))
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteUserByID", "Failed to delete user by id from database", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteUserByID", "An unexpected error occurred")
 		return
 	}
 

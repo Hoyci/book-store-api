@@ -38,7 +38,6 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				http.StatusUnauthorized,
 				fmt.Errorf("user did not send an authorization header"),
 				"AuthMiddleware",
-				"User did not send an authorization header",
 				"Missing authorization header",
 			)
 			return
@@ -51,7 +50,6 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				http.StatusUnauthorized,
 				fmt.Errorf("user sent an authorization header out of format"),
 				"AuthMiddleware",
-				"User sent an authorization header out of format",
 				"Invalid authorization header format",
 			)
 			return
@@ -66,7 +64,6 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				http.StatusUnauthorized,
 				fmt.Errorf("user sent an invalid or expired authorization header"),
 				"AuthMiddleware",
-				"User sent an invalid or expired authorization header",
 				"Invalid or expired token",
 			)
 			return
