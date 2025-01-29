@@ -34,7 +34,7 @@ func NewAuthHandler(
 func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 	var requestPayload types.UserLoginPayload
 	if err := utils.ParseJSON(r, &requestPayload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleUserLogin", "User sent request with an invalid JSON", "Body is not a valid json")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUserLogin", "Body is not a valid json")
 		return
 	}
 
@@ -44,33 +44,33 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 			errorMessages = append(errorMessages, fmt.Sprintf("Field '%s' is invalid: %s", e.Field(), e.Tag()))
 		}
 
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleUserLogin", "User sent a request containing JSON with information outside the permitted format", errorMessages)
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUserLogin", errorMessages)
 		return
 	}
 
 	user, err := h.userStore.GetByEmail(r.Context(), requestPayload.Email)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleUserLogin", "Failed to get user by email from database", fmt.Sprintf("No user found with email %s", requestPayload.Email))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleUserLogin", fmt.Sprintf("No user found with email %s", requestPayload.Email))
 			return
 		}
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "Failed get user by email from database", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An unexpected error occurred")
 		return
 	}
 
 	accessToken, err := utils.CreateJWT(user.ID, user.Username, user.Email, config.Envs.JWTSecret, 3600, h.UUIDGen)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An unexpected error occurred")
 	}
 
 	refreshToken, err := utils.CreateJWT(user.ID, user.Username, user.Email, config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds, h.UUIDGen)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An unexpected error occurred")
 	}
 
 	refreshTokenClaims, err := utils.VerifyJWT(refreshToken, config.Envs.JWTSecret)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "Failed to parse the new refresh token", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An unexpected error occurred")
 		return
 	}
 
@@ -83,7 +83,14 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "Failed to insert refresh token", "Internal Server Error")
+		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
+		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
+		if err == sql.ErrNoRows {
+			utils.WriteError(w, http.StatusNotFound, err, "HandleGetBookByID", fmt.Sprintf("No userID found with ID %d", refreshTokenClaims.UserID))
+			return
+		}
+
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "Internal Server Error")
 		return
 	}
 
@@ -93,7 +100,7 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request) {
 	var requestPayload types.RefreshTokenPayload
 	if err := utils.ParseJSON(r, &requestPayload); err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleUserLogin", "User sent request with an invalid JSON", "Body is not a valid json")
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUserLogin", "Body is not a valid json")
 		return
 	}
 
@@ -103,44 +110,44 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 			errorMessages = append(errorMessages, fmt.Sprintf("Field '%s' is invalid: %s", e.Field(), e.Tag()))
 		}
 
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleUserLogin", "User sent a request containing JSON with information outside the permitted format", errorMessages)
+		utils.WriteError(w, http.StatusBadRequest, err, "HandleUserLogin", errorMessages)
 		return
 	}
 
 	claims, err := utils.VerifyJWT(requestPayload.RefreshToken, config.Envs.JWTSecret)
 	if err != nil {
-		utils.WriteError(w, http.StatusUnauthorized, err, "HandleRefreshToken", "User sent an invalid or expired refresh token", "Refresh token is invalid or has been expired")
+		utils.WriteError(w, http.StatusUnauthorized, err, "HandleRefreshToken", "Refresh token is invalid or has been expired")
 		return
 	}
 
 	storedToken, err := h.authStore.GetRefreshTokenByUserID(r.Context(), claims.UserID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleRefreshToken", "Failed get refresh token by user ID from database", fmt.Sprintf("No refresh token found with user ID %d", claims.UserID))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleRefreshToken", fmt.Sprintf("No refresh token found with user ID %d", claims.UserID))
 			return
 		}
-		utils.WriteError(w, http.StatusUnauthorized, err, "HandleRefreshToken", "Failed get refresh token by user ID from database", "Unauthorized")
+		utils.WriteError(w, http.StatusUnauthorized, err, "HandleRefreshToken", "Unauthorized")
 		return
 	}
 
 	if storedToken.Jti != claims.RegisteredClaims.ID {
-		utils.WriteError(w, http.StatusUnauthorized, fmt.Errorf("stored JTI does not match the claims ID"), "HandleRefreshToken", "Stored JTI does not match the claims ID", "Unauthorized")
+		utils.WriteError(w, http.StatusUnauthorized, fmt.Errorf("stored JTI does not match the claims ID"), "HandleRefreshToken", "Unauthorized")
 		return
 	}
 
 	newAccessToken, err := utils.CreateJWT(claims.UserID, claims.Username, claims.Email, config.Envs.JWTSecret, 3600, h.UUIDGen)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An unexpected error occurred")
 	}
 
 	newRefreshToken, err := utils.CreateJWT(claims.UserID, claims.Username, claims.Email, config.Envs.JWTSecret, config.Envs.JWTExpirationInSeconds, h.UUIDGen)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An error occured during the create JWT process", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An unexpected error occurred")
 	}
 
 	newRefreshTokenClaims, err := utils.VerifyJWT(newRefreshToken, config.Envs.JWTSecret)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "Failed to parse the new refresh token", "An unexpected error occurred")
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", "An unexpected error occurred")
 		return
 	}
 
@@ -152,7 +159,14 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 			ExpiresAt: newRefreshTokenClaims.RegisteredClaims.ExpiresAt.Time,
 		})
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err, "HandleRefreshToken", "Failed to update refresh token", "Internal Server Error")
+		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
+		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
+		if err == sql.ErrNoRows {
+			utils.WriteError(w, http.StatusNotFound, err, "HandleGetBookByID", fmt.Sprintf("No userID found with ID %d", newRefreshTokenClaims.UserID))
+			return
+		}
+
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleRefreshToken", "Internal Server Error")
 		return
 	}
 
