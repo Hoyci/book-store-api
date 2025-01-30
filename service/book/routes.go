@@ -59,8 +59,16 @@ func (h *BookHandler) HandleCreateBook(w http.ResponseWriter, r *http.Request) {
 
 	id, err := h.bookStore.Create(r.Context(), payload)
 	if err != nil {
-		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
-		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
+		if errors.Is(err, context.Canceled) {
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
+			return
+		}
+
+		if err == sql.ErrConnDone {
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "An unexpected error occurred")
+			return
+		}
+
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateBook", "An unexpected error occurred")
 		return
 	}
@@ -82,6 +90,11 @@ func (h *BookHandler) HandleGetBookByID(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
+			return
+		}
+
+		if err == sql.ErrConnDone {
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "An unexpected error occurred")
 			return
 		}
 
@@ -145,10 +158,18 @@ func (h *BookHandler) HandleUpdateBookByID(w http.ResponseWriter, r *http.Reques
 
 	book, err := h.bookStore.UpdateByID(r.Context(), id, payload)
 	if err != nil {
-		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
-		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
+		if errors.Is(err, context.Canceled) {
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
+			return
+		}
+
+		if err == sql.ErrConnDone {
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "An unexpected error occurred")
+			return
+		}
+
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleUpdateBookByID", fmt.Sprintf("No book found with ID %d", id))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleGetBookByID", fmt.Sprintf("No book found with ID %d", id))
 			return
 		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateBookByID", "An unexpected error occurred")
@@ -170,12 +191,21 @@ func (h *BookHandler) HandleDeleteBookByID(w http.ResponseWriter, r *http.Reques
 
 	returnedID, err := h.bookStore.DeleteByID(r.Context(), id)
 	if err != nil {
-		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
-		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
+		if errors.Is(err, context.Canceled) {
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleDeleteBookByID", "Request canceled")
+			return
+		}
+
+		if err == sql.ErrConnDone {
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteBookByID", "An unexpected error occurred")
+			return
+		}
+
 		if err == sql.ErrNoRows {
 			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteBookByID", fmt.Sprintf("No book found with ID %d", id))
 			return
 		}
+
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteBookByID", "An unexpected error occurred")
 		return
 	}
