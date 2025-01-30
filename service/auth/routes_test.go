@@ -225,6 +225,40 @@ func TestHandleUserLogin(t *testing.T) {
 		assert.JSONEq(t, expected, string(responseBody))
 	})
 
+	t.Run("it should return error when the request context is canceled during the process of get user by email", func(t *testing.T) {
+		mockUserStore, _, _, ts, router, _ := setupTestServer()
+		defer ts.Close()
+
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockUserStore.On("GetByEmail", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx.Err() == context.Canceled
+		}), "johndoe@email.com").Return((*types.UserResponse)(nil), context.Canceled)
+
+		payload := types.UserLoginPayload{
+			Email:    "johndoe@email.com",
+			Password: "123mudar",
+		}
+		marshalled, _ := json.Marshal(payload)
+
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/auth", bytes.NewBuffer(marshalled)).WithContext(canceledCtx)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
 	t.Run("it should throw a database find error", func(t *testing.T) {
 		mockUserStore, _, _, ts, router, _ := setupTestServer()
 		defer ts.Close()
@@ -414,80 +448,38 @@ func TestHandleRefreshToken(t *testing.T) {
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
-	t.Run("it should successfully refresh user token", func(t *testing.T) {
-		mockUserStore, mockAuthStore, mockUUID, ts, router, _ := setupTestServer()
+	t.Run("it should return error when the request context is canceled during the process of get refresh token by user id", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		_, mockAuthStore, _, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		mockUUID.On("New").Return("mocked-uuid")
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
 
-		mockUserStore.On("GetByEmail", mock.Anything, mock.Anything).Return(
-			&types.UserResponse{
-				ID:        1,
-				Username:  "JohnDoe",
-				Email:     "johndoe@email.com",
-				CreatedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
-				UpdatedAt: nil,
-				DeletedAt: nil,
-			},
-			nil,
-		)
+		mockAuthStore.On("GetRefreshTokenByUserID", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx.Err() == context.Canceled
+		}), 1).Return((*types.RefreshToken)(nil), context.Canceled)
 
-		mockAuthStore.On("GetRefreshTokenByUserID", mock.Anything, mock.Anything).Return(&types.RefreshToken{}, sql.ErrNoRows)
-
-		mockAuthStore.On("UpsertRefreshToken", mock.Anything, mock.Anything).Return(nil)
-
-		userLoginPayload := types.UserLoginPayload{
-			Email:    "johndoe@email.com",
-			Password: "123mudar",
+		payload := types.RefreshTokenPayload{
+			RefreshToken: token,
 		}
-		marshalled, _ := json.Marshal(userLoginPayload)
+		payloadMarshalled, _ := json.Marshal(payload)
 
-		userLoginReq := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/auth", bytes.NewBuffer(marshalled))
-		userLoginW := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/auth/refresh", bytes.NewBuffer(payloadMarshalled)).WithContext(canceledCtx)
+		w := httptest.NewRecorder()
 
-		router.ServeHTTP(userLoginW, userLoginReq)
+		router.ServeHTTP(w, req)
 
-		resUserLogin := userLoginW.Result()
-		defer resUserLogin.Body.Close()
+		res := w.Result()
+		defer res.Body.Close()
 
-		assert.Equal(t, http.StatusOK, resUserLogin.StatusCode)
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
 
-		responseUserLoginBody, err := io.ReadAll(resUserLogin.Body)
-		if err != nil {
-			t.Fatalf("Failed to read response body: %v", err)
-		}
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
 
-		var responseUserLoginMap types.UserLoginResponse
-		err = json.Unmarshal(responseUserLoginBody, &responseUserLoginMap)
-		if err != nil {
-			t.Fatalf("Failed to unmarshal response body: %v", err)
-		}
-
-		assert.NotEmpty(t, responseUserLoginMap.AccessToken, "Access token should not be empty")
-		assert.NotEmpty(t, responseUserLoginMap.RefreshToken, "Refresh token should not be empty")
-
-		userRefreshTokenPayload := types.RefreshTokenPayload{
-			RefreshToken: responseUserLoginMap.RefreshToken,
-		}
-		userRefreshTokenMarshalled, _ := json.Marshal(userRefreshTokenPayload)
-
-		reqRefreshToken := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/auth/refresh", bytes.NewBuffer(userRefreshTokenMarshalled))
-		wRefreshToken := httptest.NewRecorder()
-
-		router.ServeHTTP(wRefreshToken, reqRefreshToken)
-
-		resRefreshToken := wRefreshToken.Result()
-		defer resRefreshToken.Body.Close()
-
-		assert.Equal(t, http.StatusNotFound, resRefreshToken.StatusCode)
-
-		responseBody, err := io.ReadAll(resRefreshToken.Body)
-		if err != nil {
-			t.Fatalf("Failed to read response body: %v", err)
-		}
-
-		expectedResponse := `{"error": "No refresh token found with user ID 1"}`
-		assert.JSONEq(t, expectedResponse, string(responseBody))
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
 	})
 
 	t.Run("it should successfully refresh user token", func(t *testing.T) {

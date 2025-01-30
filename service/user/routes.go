@@ -1,7 +1,9 @@
 package user
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -71,7 +73,16 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	_, err = h.userStore.Create(r.Context(), databasePayload)
 	if err != nil {
-		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
+		if errors.Is(err, context.Canceled) {
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
+			return
+		}
+
+		if err == sql.ErrConnDone {
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "An unexpected error occurred")
+			return
+		}
+
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateUser", "An unexpected error occurred")
 		return
 	}
@@ -91,8 +102,16 @@ func (h *UserHandler) HandleGetUserByID(w http.ResponseWriter, r *http.Request) 
 
 	user, err := h.userStore.GetByID(r.Context(), id)
 	if err != nil {
-		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
-		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
+		if errors.Is(err, context.Canceled) {
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
+			return
+		}
+
+		if err == sql.ErrConnDone {
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "An unexpected error occurred")
+			return
+		}
+
 		if err == sql.ErrNoRows {
 			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", fmt.Sprintf("No user found with ID %d", id))
 			return
@@ -132,8 +151,16 @@ func (h *UserHandler) HandleUpdateUserByID(w http.ResponseWriter, r *http.Reques
 
 	user, err := h.userStore.UpdateByID(r.Context(), id, payload)
 	if err != nil {
-		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
-		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
+		if errors.Is(err, context.Canceled) {
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
+			return
+		}
+
+		if err == sql.ErrConnDone {
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "An unexpected error occurred")
+			return
+		}
+
 		if err == sql.ErrNoRows {
 			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", fmt.Sprintf("No user found with ID %d", id))
 			return
@@ -157,8 +184,16 @@ func (h *UserHandler) HandleDeleteUserByID(w http.ResponseWriter, r *http.Reques
 
 	returnedID, err := h.userStore.DeleteByID(r.Context(), id)
 	if err != nil {
-		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
-		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
+		if errors.Is(err, context.Canceled) {
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
+			return
+		}
+
+		if err == sql.ErrConnDone {
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "An unexpected error occurred")
+			return
+		}
+
 		if err == sql.ErrNoRows {
 			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", fmt.Sprintf("No user found with ID %d", id))
 			return

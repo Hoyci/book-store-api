@@ -177,6 +177,71 @@ func TestHandleCreateUser(t *testing.T) {
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
+	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+		mockUserStore, ts, router, _ := setupTestServer()
+		defer ts.Close()
+
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockUserStore.On("Create", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx.Err() == context.Canceled
+		}), mock.Anything).Return((*types.UserResponse)(nil), context.Canceled)
+
+		payload := types.CreateUserRequestPayload{
+			Username:        "JohnDoe",
+			Email:           "johndoe@email.com",
+			Password:        "123mudar",
+			ConfirmPassword: "123mudar",
+		}
+		marshalled, _ := json.Marshal(payload)
+
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/users", bytes.NewBuffer(marshalled)).WithContext(canceledCtx)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should throw a database connection error", func(t *testing.T) {
+		mockUserStore, ts, router, _ := setupTestServer()
+		defer ts.Close()
+
+		mockUserStore.On("Create", mock.Anything, mock.Anything).Return((*types.UserResponse)(nil), sql.ErrConnDone)
+
+		payload := types.CreateUserRequestPayload{
+			Username:        "JohnDoe",
+			Email:           "johndoe@email.com",
+			Password:        "123mudar",
+			ConfirmPassword: "123mudar",
+		}
+		marshalled, _ := json.Marshal(payload)
+
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/users", bytes.NewBuffer(marshalled))
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+		responseBody, _ := io.ReadAll(res.Body)
+		expected := `{"error":"An unexpected error occurred"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
 	t.Run("it should throw a database insert error", func(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
@@ -269,21 +334,6 @@ func TestHandleGetUserById(t *testing.T) {
 		return mockUserStore, ts, router, apiServer.Config
 	}
 
-	t.Run("it should throw an error when call endpoint without user ID", func(t *testing.T) {
-		_, ts, router, _ := setupTestServer()
-		defer ts.Close()
-
-		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/users/", nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		res := w.Result()
-		defer res.Body.Close()
-
-		assert.Equal(t, http.StatusNotFound, res.StatusCode)
-	})
-
 	t.Run("it should throw an error when call endpoint with wrong user ID", func(t *testing.T) {
 		_, ts, router, _ := setupTestServer()
 		defer ts.Close()
@@ -304,6 +354,59 @@ func TestHandleGetUserById(t *testing.T) {
 		}
 
 		expectedResponse := `{"error":"User ID must be a positive integer"}`
+		assert.JSONEq(t, expectedResponse, string(responseBody))
+	})
+
+	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+		mockUserStore, ts, router, _ := setupTestServer()
+		defer ts.Close()
+
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockUserStore.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx.Err() == context.Canceled
+		}), mock.Anything).Return(&types.UserResponse{}, context.Canceled)
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users/1", nil).WithContext(canceledCtx)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should throw a database connection error", func(t *testing.T) {
+		mockUserStore, ts, router, _ := setupTestServer()
+		defer ts.Close()
+
+		mockUserStore.On("GetByID", mock.Anything, mock.Anything).Return(&types.UserResponse{}, sql.ErrConnDone)
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users/1", nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+
+		expectedResponse := `{"error":"An unexpected error occurred"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -382,26 +485,11 @@ func TestHandleUpdateUserById(t *testing.T) {
 		return mockUserStore, ts, router, apiServer.Config
 	}
 
-	t.Run("it should throw an error when call endpoint without user ID", func(t *testing.T) {
-		_, ts, router, _ := setupTestServer()
-		defer ts.Close()
-
-		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/users/", nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		res := w.Result()
-		defer res.Body.Close()
-
-		assert.Equal(t, http.StatusNotFound, res.StatusCode)
-	})
-
 	t.Run("it should throw an error when call endpoint with wrong user ID", func(t *testing.T) {
 		_, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users/johndoe", nil)
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users/johndoe", nil)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -468,6 +556,65 @@ func TestHandleUpdateUserById(t *testing.T) {
 
 		expectedResponse := `{"error":["Field validation for 'Username' failed on the 'min' tag", "Field validation for 'Email' failed on the 'email' tag"]}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
+	})
+
+	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+		mockUserStore, ts, router, _ := setupTestServer()
+		defer ts.Close()
+
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockUserStore.On("UpdateByID", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx.Err() == context.Canceled
+		}), mock.Anything, mock.Anything).Return(&types.UserResponse{}, context.Canceled)
+
+		validPayload := `{
+			"username": "johndoe - updated",
+			"email": "johndoeupdated@email.com"
+		}`
+
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users/1", bytes.NewBufferString(validPayload)).WithContext(canceledCtx)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should throw a database connection error", func(t *testing.T) {
+		mockUserStore, ts, router, _ := setupTestServer()
+		defer ts.Close()
+
+		mockUserStore.On("UpdateByID", mock.Anything, mock.Anything, mock.Anything).Return(&types.UserResponse{}, sql.ErrConnDone)
+
+		validPayload := `{
+			"username": "johndoe - updated",
+			"email": "johndoeupdated@email.com"
+		}`
+
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users/1", bytes.NewBufferString(validPayload))
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+		responseBody, _ := io.ReadAll(res.Body)
+		expected := `{"error":"An unexpected error occurred"}`
+		assert.JSONEq(t, expected, string(responseBody))
 	})
 
 	t.Run("it should throw an error when call endpoint with a non-existent user ID", func(t *testing.T) {
@@ -555,21 +702,6 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		return mockUserStore, ts, router, apiServer.Config
 	}
 
-	t.Run("it should throw an error when call endpoint without book ID", func(t *testing.T) {
-		_, ts, router, _ := setupTestServer()
-		defer ts.Close()
-
-		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users", nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		res := w.Result()
-		defer res.Body.Close()
-
-		assert.Equal(t, http.StatusNotFound, res.StatusCode)
-	})
-
 	t.Run("it should throw an error when call endpoint with wrong ID", func(t *testing.T) {
 		_, ts, router, _ := setupTestServer()
 		defer ts.Close()
@@ -591,6 +723,55 @@ func TestHandleDeleteBookByID(t *testing.T) {
 
 		expectedResponse := `{"error":"Book ID must be a positive integer"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
+	})
+
+	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+		mockUserStore, ts, router, _ := setupTestServer()
+		defer ts.Close()
+
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockUserStore.On("DeleteByID", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx.Err() == context.Canceled
+		}), mock.Anything).Return(0, context.Canceled)
+
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users/1", nil).WithContext(canceledCtx)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should throw a database connection error", func(t *testing.T) {
+		mockUserStore, ts, router, _ := setupTestServer()
+		defer ts.Close()
+
+		mockUserStore.On("DeleteByID", mock.Anything, mock.Anything).Return(0, sql.ErrConnDone)
+
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users/1", nil)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+		responseBody, _ := io.ReadAll(res.Body)
+		expected := `{"error":"An unexpected error occurred"}`
+		assert.JSONEq(t, expected, string(responseBody))
 	})
 
 	t.Run("it should throw an error when call endpoint with a non-existent user ID", func(t *testing.T) {

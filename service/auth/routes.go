@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -50,6 +52,11 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userStore.GetByEmail(r.Context(), requestPayload.Email)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
+			return
+		}
+
 		if err == sql.ErrNoRows {
 			utils.WriteError(w, http.StatusNotFound, err, "HandleUserLogin", fmt.Sprintf("No user found with email %s", requestPayload.Email))
 			return
@@ -83,7 +90,6 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 	if err != nil {
-		// TODO: adicionar errors.Is(err, context.Canceled) pode ser uma boa
 		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
 		if err == sql.ErrNoRows {
 			utils.WriteError(w, http.StatusNotFound, err, "HandleGetBookByID", fmt.Sprintf("No userID found with ID %d", refreshTokenClaims.UserID))
@@ -122,6 +128,11 @@ func (h *AuthHandler) HandleRefreshToken(w http.ResponseWriter, r *http.Request)
 
 	storedToken, err := h.authStore.GetRefreshTokenByUserID(r.Context(), claims.UserID)
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
+			return
+		}
+
 		if err == sql.ErrNoRows {
 			utils.WriteError(w, http.StatusNotFound, err, "HandleRefreshToken", fmt.Sprintf("No refresh token found with user ID %d", claims.UserID))
 			return

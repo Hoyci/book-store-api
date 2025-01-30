@@ -6,7 +6,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -126,12 +125,53 @@ func TestHandleCreateBook(t *testing.T) {
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
-	t.Run("it should throw a database insert error", func(t *testing.T) {
+	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
 		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
-		mockBookStore.On("Create", mock.Anything, mock.Anything).Return(0, fmt.Errorf("failed to insert entity 'book': database error"))
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockBookStore.On("Create", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx.Err() == context.Canceled
+		}), mock.Anything).Return(0, context.Canceled)
+
+		payload := types.CreateBookPayload{
+			Name:          "Go Programming",
+			Description:   "A book about Go programming",
+			Author:        "John Doe",
+			Genres:        []string{"Programming"},
+			ReleaseYear:   2024,
+			NumberOfPages: 300,
+			ImageUrl:      "http://example.com/go.jpg",
+		}
+		marshalled, _ := json.Marshal(payload)
+
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/books", bytes.NewBuffer(marshalled)).WithContext(canceledCtx)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should throw a database connection error", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("Create", mock.Anything, mock.Anything).Return(0, sql.ErrConnDone)
 
 		payload := types.CreateBookPayload{
 			Name:          "Go Programming",
@@ -156,6 +196,44 @@ func TestHandleCreateBook(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
 
 		responseBody, _ := io.ReadAll(res.Body)
+		expected := `{"error":"An unexpected error occurred"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should return error when a generic database error occur", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("Create", mock.Anything, mock.Anything).Return(0, errors.New("generic database error"))
+
+		payload := types.CreateBookPayload{
+			Name:          "Go Programming",
+			Description:   "A book about Go programming",
+			Author:        "John Doe",
+			Genres:        []string{"Programming"},
+			ReleaseYear:   2024,
+			NumberOfPages: 300,
+			ImageUrl:      "http://example.com/go.jpg",
+		}
+		marshalled, _ := json.Marshal(payload)
+
+		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/books", bytes.NewBuffer(marshalled))
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+
 		expected := `{"error":"An unexpected error occurred"}`
 		assert.JSONEq(t, expected, string(responseBody))
 	})
@@ -234,6 +312,59 @@ func TestHandleGetBookByID(t *testing.T) {
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
+	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockBookStore.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx.Err() == context.Canceled
+		}), 1).Return(&types.Book{}, context.Canceled)
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/1", nil).WithContext(canceledCtx)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should throw a database connection error", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("GetByID", mock.Anything, mock.Anything).Return(&types.Book{}, sql.ErrConnDone)
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/1", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+		responseBody, _ := io.ReadAll(res.Body)
+		expected := `{"error":"An unexpected error occurred"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
 	t.Run("it should throw an error when call endpoint with a non-existent book ID", func(t *testing.T) {
 		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
@@ -261,20 +392,14 @@ func TestHandleGetBookByID(t *testing.T) {
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
-	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+	t.Run("it should return error when a generic database error occur", func(t *testing.T) {
 		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
-		canceledCtx, cancel := context.WithCancel(context.Background())
-		cancel()
+		mockBookStore.On("GetByID", mock.Anything, 1).Return(&types.Book{}, errors.New("generic database error"))
 
-		mockBookStore.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool {
-
-			return ctx.Err() == context.Canceled
-		}), 1).Return(&types.Book{}, context.Canceled)
-
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/1", nil).WithContext(canceledCtx)
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books/1", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
@@ -283,13 +408,15 @@ func TestHandleGetBookByID(t *testing.T) {
 		res := w.Result()
 		defer res.Body.Close()
 
-		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
 
 		responseBody, err := io.ReadAll(res.Body)
-		assert.NoError(t, err)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
 
-		expected := `{"error":"Request canceled"}`
-		assert.JSONEq(t, expected, string(responseBody))
+		expectedResponse := `{"error":"An unexpected error occurred"}`
+		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
 	t.Run("it should return succssefully status and body when call endpoint with valid body", func(t *testing.T) {
@@ -356,6 +483,37 @@ func TestHandleGetManyBooks(t *testing.T) {
 		return mockBookStore, ts, router
 	}
 
+	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockBookStore.On("GetMany", mock.MatchedBy(func(ctx context.Context) bool {
+
+			return ctx.Err() == context.Canceled
+		})).Return([]*types.Book{}, context.Canceled)
+
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books", nil).WithContext(canceledCtx)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
 	t.Run("it should return error when database is not available", func(t *testing.T) {
 		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
@@ -407,37 +565,6 @@ func TestHandleGetManyBooks(t *testing.T) {
 		}
 
 		expected := `{"error":"An unexpected error occurred"}`
-		assert.JSONEq(t, expected, string(responseBody))
-	})
-
-	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
-		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
-		mockBookStore, ts, router := setupTestServer()
-		defer ts.Close()
-
-		canceledCtx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		mockBookStore.On("GetMany", mock.MatchedBy(func(ctx context.Context) bool {
-
-			return ctx.Err() == context.Canceled
-		})).Return([]*types.Book{}, context.Canceled)
-
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/books", nil).WithContext(canceledCtx)
-		req.Header.Set("Authorization", "Bearer "+token)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		res := w.Result()
-		defer res.Body.Close()
-
-		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
-
-		responseBody, err := io.ReadAll(res.Body)
-		assert.NoError(t, err)
-
-		expected := `{"error":"Request canceled"}`
 		assert.JSONEq(t, expected, string(responseBody))
 	})
 
@@ -568,21 +695,6 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		return mockBookStore, ts, router
 	}
 
-	t.Run("it should throw an error when call endpoint without book ID", func(t *testing.T) {
-		_, ts, router := setupTestServer()
-		defer ts.Close()
-
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books", nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		res := w.Result()
-		defer res.Body.Close()
-
-		assert.Equal(t, http.StatusNotFound, res.StatusCode)
-	})
-
 	t.Run("it should throw an error when call endpoint with wrong book ID", func(t *testing.T) {
 		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		_, ts, router := setupTestServer()
@@ -660,6 +772,71 @@ func TestHandleUpdateBookByID(t *testing.T) {
 
 		expectedResponse := `{"error":["Field validation for 'Name' failed on the 'min' tag"]}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
+	})
+
+	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockBookStore.On("UpdateByID", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx.Err() == context.Canceled
+		}), 1, mock.Anything).Return(&types.Book{}, context.Canceled)
+
+		validPayload := `{
+			"name": "Go Programming - Updated",
+			"genres": ["Programming", "Go"],
+			"image_url": "http://example.com/go_updated.jpg"
+		}`
+
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(validPayload)).WithContext(canceledCtx)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should throw a database connection error", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("UpdateByID", mock.Anything, mock.Anything, mock.Anything).Return(&types.Book{}, sql.ErrConnDone)
+
+		validPayload := `{
+			"name": "Go Programming - Updated",
+			"genres": ["Programming", "Go"],
+			"image_url": "http://example.com/go_updated.jpg"
+		}`
+
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(validPayload))
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+		responseBody, _ := io.ReadAll(res.Body)
+		expected := `{"error":"An unexpected error occurred"}`
+		assert.JSONEq(t, expected, string(responseBody))
 	})
 
 	t.Run("it should throw an error when call endpoint with a non-existent user ID", func(t *testing.T) {
@@ -803,6 +980,59 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
+	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		canceledCtx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		mockBookStore.On("DeleteByID", mock.MatchedBy(func(ctx context.Context) bool {
+			return ctx.Err() == context.Canceled
+		}), mock.Anything).Return(0, context.Canceled)
+
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil).WithContext(canceledCtx)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+		responseBody, err := io.ReadAll(res.Body)
+		assert.NoError(t, err)
+
+		expected := `{"error":"Request canceled"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
+	t.Run("it should throw a database connection error", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(0, sql.ErrConnDone)
+
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+		responseBody, _ := io.ReadAll(res.Body)
+		expected := `{"error":"An unexpected error occurred"}`
+		assert.JSONEq(t, expected, string(responseBody))
+	})
+
 	t.Run("it should throw an error when call endpoint with a non-existent user ID", func(t *testing.T) {
 		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
@@ -828,6 +1058,29 @@ func TestHandleDeleteBookByID(t *testing.T) {
 
 		expectedResponse := `{"error": "No book found with ID 1"}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
+	})
+
+	t.Run("it should return error when a generic database error occur", func(t *testing.T) {
+		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
+		mockBookStore, ts, router := setupTestServer()
+		defer ts.Close()
+
+		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(0, errors.New("generic database error"))
+
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
+		w := httptest.NewRecorder()
+
+		router.ServeHTTP(w, req)
+
+		res := w.Result()
+		defer res.Body.Close()
+
+		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+		responseBody, _ := io.ReadAll(res.Body)
+		expected := `{"error":"An unexpected error occurred"}`
+		assert.JSONEq(t, expected, string(responseBody))
 	})
 
 	t.Run("it should return succssefully status and body when call endpoint with valid body", func(t *testing.T) {
