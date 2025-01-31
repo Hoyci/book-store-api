@@ -54,27 +54,24 @@ func (m *MockUserStore) Create(ctx context.Context, user types.CreateUserDatabas
 	return args.Get(0).(*types.UserResponse), args.Error(1)
 }
 
-func (m *MockUserStore) GetByID(ctx context.Context, id int) (*types.UserResponse, error) {
-	args := m.Called(ctx, id)
+func (m *MockUserStore) GetByID(ctx context.Context) (*types.UserResponse, error) {
+	args := m.Called(ctx)
 	return args.Get(0).(*types.UserResponse), args.Error(1)
 }
 
-func (m *MockUserStore) GetByEmail(ctx context.Context, email string) (*types.UserResponse, error) {
-	args := m.Called(ctx, email)
+func (m *MockUserStore) GetByEmail(ctx context.Context) (*types.UserResponse, error) {
+	args := m.Called(ctx)
 	return args.Get(0).(*types.UserResponse), args.Error(1)
 }
 
-func (m *MockUserStore) UpdateByID(ctx context.Context, id int, newUser types.UpdateUserPayload) (*types.UserResponse, error) {
-	args := m.Called(ctx, id)
+func (m *MockUserStore) UpdateByID(ctx context.Context, newUser types.UpdateUserPayload) (*types.UserResponse, error) {
+	args := m.Called(ctx)
 	return args.Get(0).(*types.UserResponse), args.Error(1)
 }
 
-func (m *MockUserStore) DeleteByID(ctx context.Context, id int) (int, error) {
-	args := m.Called(ctx, id)
-	if val, ok := args.Get(0).(int); ok {
-		return val, args.Error(1)
-	}
-	return 0, args.Error(1)
+func (m *MockUserStore) DeleteByID(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
 }
 
 func TestHandleUserLogin(t *testing.T) {
@@ -234,7 +231,7 @@ func TestHandleUserLogin(t *testing.T) {
 
 		mockUserStore.On("GetByEmail", mock.MatchedBy(func(ctx context.Context) bool {
 			return ctx.Err() == context.Canceled
-		}), "johndoe@email.com").Return((*types.UserResponse)(nil), context.Canceled)
+		})).Return((*types.UserResponse)(nil), context.Canceled)
 
 		payload := types.UserLoginPayload{
 			Email:    "johndoe@email.com",

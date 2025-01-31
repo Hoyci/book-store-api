@@ -23,22 +23,12 @@ func passwordValidator(sl validator.StructLevel) {
 	}
 }
 
-func updateUserPayloadStructLevelValidation(sl validator.StructLevel) {
-	payload := sl.Current().Interface().(types.UpdateUserPayload)
-
-	if payload.Username == nil &&
-		payload.Email == nil {
-		sl.ReportError(payload, "UpdateUserPayload", "", "atleastonefield", "")
-	}
-}
-
 type UserHandler struct {
 	userStore types.UserStore
 }
 
 func NewUserHandler(userStore types.UserStore) *UserHandler {
 	validate.RegisterStructValidation(passwordValidator, types.CreateUserRequestPayload{})
-	validate.RegisterStructValidation(updateUserPayloadStructLevelValidation, types.UpdateUserPayload{})
 
 	return &UserHandler{userStore: userStore}
 }
@@ -100,7 +90,7 @@ func (h *UserHandler) HandleGetUserByID(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	user, err := h.userStore.GetByID(r.Context(), id)
+	user, err := h.userStore.GetByID(r.Context())
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
@@ -149,7 +139,7 @@ func (h *UserHandler) HandleUpdateUserByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	user, err := h.userStore.UpdateByID(r.Context(), id, payload)
+	user, err := h.userStore.UpdateByID(r.Context(), payload)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
@@ -182,7 +172,7 @@ func (h *UserHandler) HandleDeleteUserByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	returnedID, err := h.userStore.DeleteByID(r.Context(), id)
+	err = h.userStore.DeleteByID(r.Context())
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
@@ -202,5 +192,5 @@ func (h *UserHandler) HandleDeleteUserByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, types.DeleteUserByIDResponse{ID: returnedID})
+	utils.WriteJSON(w, http.StatusNoContent, nil)
 }

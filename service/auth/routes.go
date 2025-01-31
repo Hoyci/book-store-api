@@ -50,7 +50,7 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userStore.GetByEmail(r.Context(), requestPayload.Email)
+	user, err := h.userStore.GetByEmail(r.Context())
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
@@ -90,7 +90,6 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 	if err != nil {
-		// TODO: Adicionar sql.ErrConnDone pode ser uma boa
 		if err == sql.ErrNoRows {
 			utils.WriteError(w, http.StatusNotFound, err, "HandleGetBookByID", fmt.Sprintf("No userID found with ID %d", refreshTokenClaims.UserID))
 			return
