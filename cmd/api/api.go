@@ -6,11 +6,13 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/config"
+	_ "github.com/hoyci/book-store-api/docs"
 	"github.com/hoyci/book-store-api/service/auth"
 	"github.com/hoyci/book-store-api/service/book"
 	"github.com/hoyci/book-store-api/service/healthcheck"
 	"github.com/hoyci/book-store-api/service/user"
 	"github.com/hoyci/book-store-api/utils"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 type APIServer struct {
@@ -41,6 +43,17 @@ func (s *APIServer) SetupRouter(
 	router.Use(utils.LoggingMiddleware)
 
 	subrouter := router.PathPrefix("/api/v1").Subrouter()
+
+	subrouter.HandleFunc("/swagger.json", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "docs/swagger.json")
+	})
+
+	subrouter.PathPrefix("/swagger/").Handler(httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8080/api/v1/swagger.json"),
+		httpSwagger.DeepLinking(true),
+		httpSwagger.DocExpansion("none"),
+		httpSwagger.DomID("swagger-ui"),
+	)).Methods(http.MethodGet)
 
 	subrouter.HandleFunc("/healthcheck", healthCheckHandler.HandleHealthCheck).Methods(http.MethodGet)
 

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hoyci/book-store-api/config"
+	"github.com/hoyci/book-store-api/types"
 	"github.com/sirupsen/logrus"
 )
 
@@ -38,7 +39,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				http.StatusUnauthorized,
 				fmt.Errorf("user did not send an authorization header"),
 				"AuthMiddleware",
-				"Missing authorization header",
+				types.UnauthorizedResponse{Error: "Missing authorization header"},
 			)
 			return
 		}
@@ -50,7 +51,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				http.StatusUnauthorized,
 				fmt.Errorf("user sent an authorization header out of format"),
 				"AuthMiddleware",
-				"Invalid authorization header format",
+				types.UnauthorizedResponse{Error: "Invalid authorization header format"},
 			)
 			return
 		}
@@ -64,7 +65,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 				http.StatusUnauthorized,
 				fmt.Errorf("user sent an invalid or expired authorization header"),
 				"AuthMiddleware",
-				"Invalid or expired token",
+				types.UnauthorizedResponse{Error: "Invalid or expired token"},
 			)
 			return
 		}

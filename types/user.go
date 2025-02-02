@@ -39,8 +39,8 @@ type CreateUserRequestPayload struct {
 	ConfirmPassword string `json:"confirm_password" validate:"required,min=8"`
 }
 
-type CreateUserByIDResponse struct {
-	ID int `json:"id"`
+type CreateUserResponse struct {
+	Message string `json:"message"`
 }
 
 type CreateUserDatabasePayload struct {

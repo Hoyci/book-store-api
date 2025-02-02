@@ -15,6 +15,14 @@ import (
 	"github.com/hoyci/book-store-api/utils"
 )
 
+// @title Book Store API
+// @version 1.0
+// @description API para gestão de livros
+// @host localhost:8080
+// @BasePath /api/v1
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	db := db.NewPGStorage()
 	path := fmt.Sprintf("127.0.0.1:%s", config.Envs.Port)
@@ -38,5 +46,3 @@ func main() {
 	log.Println("Listening on:", path)
 	http.ListenAndServe(path, apiServer.Router)
 }
-
-// TODO: Adicionar swagger para documentar a API

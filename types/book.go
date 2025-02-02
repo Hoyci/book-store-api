@@ -54,3 +54,7 @@ type UpdateBookPayload struct {
 type DeleteBookByIDResponse struct {
 	ID int `json:"id"`
 }
+
+type GetBooksResponse struct {
+	Books []*Book `json:"books"`
+}
