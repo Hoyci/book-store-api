@@ -3,6 +3,7 @@ package book
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -174,52 +175,51 @@ func (s *BookStore) UpdateByID(ctx context.Context, bookID int, newBook types.Up
 	}
 	userID := claimsCtx.UserID
 
-	query := "UPDATE books SET updated_at = $1, "
-	args := []any{time.Now()}
-	counter := 2
-
-	fields := []struct {
-		name  string
-		value any
-	}{
-		{"name", newBook.Name},
-		{"description", newBook.Description},
-		{"author", newBook.Author},
-		{"genres", newBook.Genres},
-		{"release_year", newBook.ReleaseYear},
-		{"number_of_pages", newBook.NumberOfPages},
-		{"image_url", newBook.ImageUrl},
-	}
-
-	for _, field := range fields {
-		if !utils.IsNil(field.value) {
-			query += fmt.Sprintf("%s = $%d, ", field.name, counter)
-			if ptr, ok := field.value.(*[]string); ok {
-				args = append(args, pq.Array(*ptr))
-			} else {
-				args = append(args, field.value)
-			}
-			counter++
-		}
-	}
-
-	if len(args) == 1 {
-		return nil, fmt.Errorf("no fields to update for book with ID %d", bookID)
-	}
-
-	query = query[:len(query)-2] + fmt.Sprintf(`
-		WHERE id IN (
-			SELECT b.id
-			FROM books b
-			INNER JOIN users_books ub ON ub.book_id = b.id
-			WHERE b.id = $%d AND ub.user_id = $%d
-		) 
-		RETURNING id, name, description, author, genres, release_year, number_of_pages, image_url, created_at, updated_at
-	`, counter, counter+1)
-	args = append(args, bookID, userID)
+	query := `
+			UPDATE books SET 
+			name = $3, 
+			description = $4,
+			author = $5,
+			genres = $6,
+			release_year = $7,
+			number_of_pages = $8,
+			image_url = $9,
+			updated_at = $10
+			WHERE id IN (
+				SELECT b.id
+				FROM books b
+				INNER JOIN users_books ub ON ub.book_id = b.id
+				WHERE b.id = $1 AND ub.user_id = $2
+			)
+			RETURNING 
+				id, 
+				name, 
+				description, 
+				author, 
+				genres, 
+				release_year, 
+				number_of_pages, 
+				image_url, 
+				created_at, 
+				deleted_at,
+				updated_at;
+			`
 
 	updatedBook := &types.Book{}
-	err := s.db.QueryRowContext(ctx, query, args...).Scan(
+	err := s.db.QueryRowContext(
+		ctx,
+		query,
+		bookID,
+		userID,
+		newBook.Name,
+		newBook.Description,
+		newBook.Author,
+		pq.Array(newBook.Genres),
+		newBook.ReleaseYear,
+		newBook.NumberOfPages,
+		newBook.ImageUrl,
+		time.Now(),
+	).Scan(
 		&updatedBook.ID,
 		&updatedBook.Name,
 		&updatedBook.Description,
@@ -229,8 +229,10 @@ func (s *BookStore) UpdateByID(ctx context.Context, bookID int, newBook types.Up
 		&updatedBook.NumberOfPages,
 		&updatedBook.ImageUrl,
 		&updatedBook.CreatedAt,
+		&updatedBook.DeletedAt,
 		&updatedBook.UpdatedAt,
 	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -238,15 +240,16 @@ func (s *BookStore) UpdateByID(ctx context.Context, bookID int, newBook types.Up
 	return updatedBook, nil
 }
 
-func (s *BookStore) DeleteByID(ctx context.Context, bookID int) (int, error) {
-	var returnedID int
+var ErrBookNotFound = errors.New("book not found")
+
+func (s *BookStore) DeleteByID(ctx context.Context, bookID int) error {
 	claimsCtx, ok := utils.GetClaimsFromContext(ctx)
 	if !ok {
-		return 0, fmt.Errorf("failed to retrieve userID from context")
+		return fmt.Errorf("failed to retrieve userID from context")
 	}
 	userID := claimsCtx.UserID
 
-	err := s.db.QueryRowContext(
+	result, err := s.db.ExecContext(
 		ctx,
 		`
 		UPDATE books
@@ -263,10 +266,18 @@ func (s *BookStore) DeleteByID(ctx context.Context, bookID int) (int, error) {
 		bookID,
 		userID,
 		time.Now(),
-	).Scan(&returnedID)
+	)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	return returnedID, nil
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("%w: %d", ErrBookNotFound, bookID)
+	}
+
+	return nil
 }

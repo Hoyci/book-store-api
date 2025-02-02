@@ -54,9 +54,9 @@ func (s *APIServer) SetupRouter(
 	subrouter.Handle("/books/{id}", utils.AuthMiddleware(http.HandlerFunc(bookHandler.HandleDeleteBookByID))).Methods(http.MethodDelete)
 
 	subrouter.HandleFunc("/users", userHandler.HandleCreateUser).Methods(http.MethodPost)
-	subrouter.HandleFunc("/users/{id}", userHandler.HandleGetUserByID).Methods(http.MethodGet)
-	subrouter.HandleFunc("/users/{id}", userHandler.HandleUpdateUserByID).Methods(http.MethodPut)
-	subrouter.HandleFunc("/users/{id}", userHandler.HandleDeleteUserByID).Methods(http.MethodDelete)
+	subrouter.Handle("/users", utils.AuthMiddleware(http.HandlerFunc(userHandler.HandleGetUserByID))).Methods(http.MethodGet)
+	subrouter.Handle("/users", utils.AuthMiddleware(http.HandlerFunc(userHandler.HandleUpdateUserByID))).Methods(http.MethodPut)
+	subrouter.Handle("/users", utils.AuthMiddleware(http.HandlerFunc(userHandler.HandleDeleteUserByID))).Methods(http.MethodDelete)
 
 	s.Router = router
 

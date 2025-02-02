@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/cmd/api"
 	"github.com/hoyci/book-store-api/config"
+	"github.com/hoyci/book-store-api/mocks"
 	"github.com/hoyci/book-store-api/service/user"
 	"github.com/hoyci/book-store-api/types"
 	"github.com/hoyci/book-store-api/utils"
@@ -22,41 +22,9 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type MockUserStore struct {
-	mock.Mock
-}
-
-func (m *MockUserStore) Create(ctx context.Context, user types.CreateUserDatabasePayload) (*types.UserResponse, error) {
-	args := m.Called(ctx, user)
-	return args.Get(0).(*types.UserResponse), args.Error(1)
-}
-
-func (m *MockUserStore) GetByID(ctx context.Context, id int) (*types.UserResponse, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*types.UserResponse), args.Error(1)
-}
-
-func (m *MockUserStore) GetByEmail(ctx context.Context, email string) (*types.UserResponse, error) {
-	args := m.Called(ctx, email)
-	return args.Get(0).(*types.UserResponse), args.Error(1)
-}
-
-func (m *MockUserStore) UpdateByID(ctx context.Context, id int, newUser types.UpdateUserPayload) (*types.UserResponse, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*types.UserResponse), args.Error(1)
-}
-
-func (m *MockUserStore) DeleteByID(ctx context.Context, id int) (int, error) {
-	args := m.Called(ctx, id)
-	if val, ok := args.Get(0).(int); ok {
-		return val, args.Error(1)
-	}
-	return 0, args.Error(1)
-}
-
 func TestHandleCreateUser(t *testing.T) {
-	setupTestServer := func() (*MockUserStore, *httptest.Server, *mux.Router, config.Config) {
-		mockUserStore := new(MockUserStore)
+	setupTestServer := func() (*mocks.MockUserStore, *httptest.Server, *mux.Router, config.Config) {
+		mockUserStore := new(mocks.MockUserStore)
 		mockUserHandler := user.NewUserHandler(mockUserStore)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, nil, mockUserHandler, nil)
@@ -242,35 +210,6 @@ func TestHandleCreateUser(t *testing.T) {
 		assert.JSONEq(t, expected, string(responseBody))
 	})
 
-	t.Run("it should throw a database insert error", func(t *testing.T) {
-		mockUserStore, ts, router, _ := setupTestServer()
-		defer ts.Close()
-
-		mockUserStore.On("Create", mock.Anything, mock.Anything).Return((*types.UserResponse)(nil), fmt.Errorf("failed to insert entity 'user': database error"))
-
-		payload := types.CreateUserRequestPayload{
-			Username:        "JohnDoe",
-			Email:           "johndoe@email.com",
-			Password:        "123mudar",
-			ConfirmPassword: "123mudar",
-		}
-		marshalled, _ := json.Marshal(payload)
-
-		req := httptest.NewRequest(http.MethodPost, ts.URL+"/api/v1/users", bytes.NewBuffer(marshalled))
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		res := w.Result()
-		defer res.Body.Close()
-
-		assert.Equal(t, http.StatusInternalServerError, res.StatusCode)
-
-		responseBody, _ := io.ReadAll(res.Body)
-		expected := `{"error":"An unexpected error occurred"}`
-		assert.JSONEq(t, expected, string(responseBody))
-	})
-
 	t.Run("it should successfully create a user", func(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
@@ -324,9 +263,9 @@ func TestHandleCreateUser(t *testing.T) {
 	})
 }
 
-func TestHandleGetUserById(t *testing.T) {
-	setupTestServer := func() (*MockUserStore, *httptest.Server, *mux.Router, config.Config) {
-		mockUserStore := new(MockUserStore)
+func TestHandleGetUser(t *testing.T) {
+	setupTestServer := func() (*mocks.MockUserStore, *httptest.Server, *mux.Router, config.Config) {
+		mockUserStore := new(mocks.MockUserStore)
 		mockUserHandler := user.NewUserHandler(mockUserStore)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, nil, mockUserHandler, nil)
@@ -334,30 +273,9 @@ func TestHandleGetUserById(t *testing.T) {
 		return mockUserStore, ts, router, apiServer.Config
 	}
 
-	t.Run("it should throw an error when call endpoint with wrong user ID", func(t *testing.T) {
-		_, ts, router, _ := setupTestServer()
-		defer ts.Close()
+	token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users/johndoe", nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		res := w.Result()
-		defer res.Body.Close()
-
-		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
-
-		responseBody, err := io.ReadAll(res.Body)
-		if err != nil {
-			t.Fatalf("Failed to read response body: %v", err)
-		}
-
-		expectedResponse := `{"error":"User ID must be a positive integer"}`
-		assert.JSONEq(t, expectedResponse, string(responseBody))
-	})
-
-	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
+	t.Run("it should return error when context is canceled", func(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
@@ -366,9 +284,10 @@ func TestHandleGetUserById(t *testing.T) {
 
 		mockUserStore.On("GetByID", mock.MatchedBy(func(ctx context.Context) bool {
 			return ctx.Err() == context.Canceled
-		}), mock.Anything).Return(&types.UserResponse{}, context.Canceled)
+		}), 1).Return(&types.UserResponse{}, context.Canceled)
 
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users/1", nil).WithContext(canceledCtx)
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users", nil).WithContext(canceledCtx)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -391,7 +310,8 @@ func TestHandleGetUserById(t *testing.T) {
 
 		mockUserStore.On("GetByID", mock.Anything, mock.Anything).Return(&types.UserResponse{}, sql.ErrConnDone)
 
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users/1", nil)
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -410,13 +330,14 @@ func TestHandleGetUserById(t *testing.T) {
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
-	t.Run("it should throw an error when call endpoint with a non-existent user ID", func(t *testing.T) {
+	t.Run("it should throw an error when database not found user by ID", func(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
 		mockUserStore.On("GetByID", mock.Anything, mock.Anything).Return(&types.UserResponse{}, sql.ErrNoRows)
 
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users/1", nil)
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -435,11 +356,11 @@ func TestHandleGetUserById(t *testing.T) {
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
-	t.Run("it should return succssefully status and body when call endpoint with valid body", func(t *testing.T) {
+	t.Run("it should successfully get a user by ID", func(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		mockUserStore.On("GetByID", mock.Anything, 1).Return(&types.UserResponse{
+		mockUserStore.On("GetByID", mock.Anything, mock.Anything).Return(&types.UserResponse{
 			ID:        1,
 			Username:  "johndoe",
 			Email:     "johndoe@email.com",
@@ -448,7 +369,8 @@ func TestHandleGetUserById(t *testing.T) {
 			UpdatedAt: nil,
 		}, nil)
 
-		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users/1", nil)
+		req := httptest.NewRequest(http.MethodGet, ts.URL+"/api/v1/users", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -475,9 +397,9 @@ func TestHandleGetUserById(t *testing.T) {
 	})
 }
 
-func TestHandleUpdateUserById(t *testing.T) {
-	setupTestServer := func() (*MockUserStore, *httptest.Server, *mux.Router, config.Config) {
-		mockUserStore := new(MockUserStore)
+func TestHandleUpdateUser(t *testing.T) {
+	setupTestServer := func() (*mocks.MockUserStore, *httptest.Server, *mux.Router, config.Config) {
+		mockUserStore := new(mocks.MockUserStore)
 		mockUserHandler := user.NewUserHandler(mockUserStore)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, nil, mockUserHandler, nil)
@@ -485,36 +407,15 @@ func TestHandleUpdateUserById(t *testing.T) {
 		return mockUserStore, ts, router, apiServer.Config
 	}
 
-	t.Run("it should throw an error when call endpoint with wrong user ID", func(t *testing.T) {
-		_, ts, router, _ := setupTestServer()
-		defer ts.Close()
-
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users/johndoe", nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		res := w.Result()
-		defer res.Body.Close()
-
-		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
-
-		responseBody, err := io.ReadAll(res.Body)
-		if err != nil {
-			t.Fatalf("Failed to read response body: %v", err)
-		}
-
-		expectedResponse := `{"error":"User ID must be a positive integer"}`
-		assert.JSONEq(t, expectedResponse, string(responseBody))
-	})
+	token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 
 	t.Run("it should throw an error when no fields are provided for update", func(t *testing.T) {
 		_, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
 		emptyPayload := `{}`
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users/1", bytes.NewBufferString(emptyPayload))
-		req.Header.Set("Content-Type", "application/json")
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users", bytes.NewBufferString(emptyPayload))
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -529,7 +430,7 @@ func TestHandleUpdateUserById(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error": ["Field validation for 'UpdateUserPayload' failed on the 'atleastonefield' tag"]}`
+		expectedResponse := `{"error": ["Field validation for 'Username' failed on the 'required' tag", "Field validation for 'Email' failed on the 'required' tag"]}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -538,8 +439,8 @@ func TestHandleUpdateUserById(t *testing.T) {
 		defer ts.Close()
 
 		invalidPayload := `{"username": "", "email": ""}`
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users/1", bytes.NewBufferString(invalidPayload))
-		req.Header.Set("Content-Type", "application/json")
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users", bytes.NewBufferString(invalidPayload))
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -554,7 +455,7 @@ func TestHandleUpdateUserById(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":["Field validation for 'Username' failed on the 'min' tag", "Field validation for 'Email' failed on the 'email' tag"]}`
+		expectedResponse := `{"error":["Field validation for 'Username' failed on the 'required' tag", "Field validation for 'Email' failed on the 'required' tag"]}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -574,7 +475,8 @@ func TestHandleUpdateUserById(t *testing.T) {
 			"email": "johndoeupdated@email.com"
 		}`
 
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users/1", bytes.NewBufferString(validPayload)).WithContext(canceledCtx)
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users", bytes.NewBufferString(validPayload)).WithContext(canceledCtx)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -595,14 +497,15 @@ func TestHandleUpdateUserById(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		mockUserStore.On("UpdateByID", mock.Anything, mock.Anything, mock.Anything).Return(&types.UserResponse{}, sql.ErrConnDone)
+		mockUserStore.On("UpdateByID", mock.Anything, mock.Anything).Return(&types.UserResponse{}, sql.ErrConnDone)
 
 		validPayload := `{
 			"username": "johndoe - updated",
 			"email": "johndoeupdated@email.com"
 		}`
 
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users/1", bytes.NewBufferString(validPayload))
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users", bytes.NewBufferString(validPayload))
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -621,14 +524,14 @@ func TestHandleUpdateUserById(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		mockUserStore.On("UpdateByID", mock.Anything, mock.Anything, mock.Anything).Return(&types.UserResponse{}, sql.ErrNoRows)
+		mockUserStore.On("UpdateByID", mock.Anything, mock.Anything).Return(&types.UserResponse{}, sql.ErrNoRows)
 
 		validPayload := `{
 			"username": "johndoe - updated",
 			"email": "johndoeupdated@email.com"
 		}`
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users/1", bytes.NewBufferString(validPayload))
-		req.Header.Set("Content-Type", "application/json")
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users", bytes.NewBufferString(validPayload))
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -651,21 +554,23 @@ func TestHandleUpdateUserById(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		mockUserStore.On("UpdateByID", mock.Anything, 1, mock.Anything).Return(&types.UserResponse{
+		mockedDate := time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC)
+
+		mockUserStore.On("UpdateByID", mock.Anything, mock.Anything).Return(&types.UserResponse{
 			ID:        1,
 			Username:  "johndoe - updated",
 			Email:     "johndoeupdated@email.com",
 			CreatedAt: time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			DeletedAt: nil,
-			UpdatedAt: utils.TimePtr(time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC)),
+			UpdatedAt: &mockedDate,
 		}, nil)
 
 		validPayload := `{
 			"username": "johndoe - updated",
 			"email": "johndoeupdated@email.com"
 		}`
-		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users/1", bytes.NewBufferString(validPayload))
-		req.Header.Set("Content-Type", "application/json")
+		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/users", bytes.NewBufferString(validPayload))
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -686,15 +591,15 @@ func TestHandleUpdateUserById(t *testing.T) {
 			"email": "johndoeupdated@email.com",
 			"createdAt": "0001-01-01T00:00:00Z",
 			"updatedAt": "0001-01-01T00:00:00Z",
-			"deletedAt": null 
+			"deletedAt": null
 		}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 }
 
-func TestHandleDeleteBookByID(t *testing.T) {
-	setupTestServer := func() (*MockUserStore, *httptest.Server, *mux.Router, config.Config) {
-		mockUserStore := new(MockUserStore)
+func TestHandleDeleteUser(t *testing.T) {
+	setupTestServer := func() (*mocks.MockUserStore, *httptest.Server, *mux.Router, config.Config) {
+		mockUserStore := new(mocks.MockUserStore)
 		mockUserHandler := user.NewUserHandler(mockUserStore)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, nil, mockUserHandler, nil)
@@ -702,28 +607,7 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		return mockUserStore, ts, router, apiServer.Config
 	}
 
-	t.Run("it should throw an error when call endpoint with wrong ID", func(t *testing.T) {
-		_, ts, router, _ := setupTestServer()
-		defer ts.Close()
-
-		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users/anything", nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-
-		res := w.Result()
-		defer res.Body.Close()
-
-		assert.Equal(t, http.StatusBadRequest, res.StatusCode)
-
-		responseBody, err := io.ReadAll(res.Body)
-		if err != nil {
-			t.Fatalf("Failed to read response body: %v", err)
-		}
-
-		expectedResponse := `{"error":"Book ID must be a positive integer"}`
-		assert.JSONEq(t, expectedResponse, string(responseBody))
-	})
+	token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 
 	t.Run("it should return error when the request context is canceled", func(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
@@ -734,9 +618,10 @@ func TestHandleDeleteBookByID(t *testing.T) {
 
 		mockUserStore.On("DeleteByID", mock.MatchedBy(func(ctx context.Context) bool {
 			return ctx.Err() == context.Canceled
-		}), mock.Anything).Return(0, context.Canceled)
+		}), 1).Return(context.Canceled)
 
-		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users/1", nil).WithContext(canceledCtx)
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users", nil).WithContext(canceledCtx)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -757,9 +642,10 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		mockUserStore.On("DeleteByID", mock.Anything, mock.Anything).Return(0, sql.ErrConnDone)
+		mockUserStore.On("DeleteByID", mock.Anything, mock.Anything).Return(sql.ErrConnDone)
 
-		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users/1", nil)
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -778,9 +664,10 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		mockUserStore.On("DeleteByID", mock.Anything, mock.Anything).Return(0, sql.ErrNoRows)
+		mockUserStore.On("DeleteByID", mock.Anything, mock.Anything).Return(sql.ErrNoRows)
 
-		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users/1", nil)
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -803,9 +690,10 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		mockUserStore, ts, router, _ := setupTestServer()
 		defer ts.Close()
 
-		mockUserStore.On("DeleteByID", mock.Anything, mock.Anything).Return(int(1), nil)
+		mockUserStore.On("DeleteByID", mock.Anything, mock.Anything).Return(nil)
 
-		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users/1", nil)
+		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/users", nil)
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 
 		router.ServeHTTP(w, req)
@@ -813,14 +701,6 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		res := w.Result()
 		defer res.Body.Close()
 
-		assert.Equal(t, http.StatusOK, res.StatusCode)
-
-		responseBody, err := io.ReadAll(res.Body)
-		if err != nil {
-			t.Fatalf("Failed to read response body: %v", err)
-		}
-
-		expectedResponse := `{"id":1}`
-		assert.JSONEq(t, expectedResponse, string(responseBody))
+		assert.Equal(t, http.StatusNoContent, res.StatusCode)
 	})
 }

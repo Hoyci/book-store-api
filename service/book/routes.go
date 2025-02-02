@@ -16,27 +16,11 @@ import (
 
 var validate = validator.New()
 
-func updateBookPayloadStructLevelValidation(sl validator.StructLevel) {
-	payload := sl.Current().Interface().(types.UpdateBookPayload)
-
-	if payload.Name == nil &&
-		payload.Description == nil &&
-		payload.Author == nil &&
-		payload.Genres == nil &&
-		payload.ReleaseYear == nil &&
-		payload.NumberOfPages == nil &&
-		payload.ImageUrl == nil {
-		sl.ReportError(payload, "UpdateBookPayload", "", "atleastonefield", "")
-	}
-}
-
 type BookHandler struct {
 	bookStore types.BookStore
 }
 
 func NewBookHandler(bookStore types.BookStore) *BookHandler {
-	validate.RegisterStructValidation(updateBookPayloadStructLevelValidation, types.UpdateBookPayload{})
-
 	return &BookHandler{bookStore: bookStore}
 }
 
@@ -189,7 +173,7 @@ func (h *BookHandler) HandleDeleteBookByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	returnedID, err := h.bookStore.DeleteByID(r.Context(), id)
+	err = h.bookStore.DeleteByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleDeleteBookByID", "Request canceled")
@@ -210,5 +194,5 @@ func (h *BookHandler) HandleDeleteBookByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	utils.WriteJSON(w, http.StatusOK, types.DeleteBookByIDResponse{ID: returnedID})
+	utils.WriteJSON(w, http.StatusNoContent, nil)
 }

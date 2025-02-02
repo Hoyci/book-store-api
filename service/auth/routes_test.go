@@ -15,6 +15,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/cmd/api"
 	"github.com/hoyci/book-store-api/config"
+	"github.com/hoyci/book-store-api/mocks"
 	"github.com/hoyci/book-store-api/service/auth"
 	"github.com/hoyci/book-store-api/types"
 	"github.com/hoyci/book-store-api/utils"
@@ -22,66 +23,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type MockUUIDGenerator struct {
-	mock.Mock
-}
-
-func (m *MockUUIDGenerator) New() string {
-	args := m.Called()
-	return args.String(0)
-}
-
-type MockAuthStore struct {
-	mock.Mock
-}
-
-func (m *MockAuthStore) GetRefreshTokenByUserID(ctx context.Context, userID int) (*types.RefreshToken, error) {
-	args := m.Called(ctx, userID)
-	return args.Get(0).(*types.RefreshToken), args.Error(1)
-}
-
-func (m *MockAuthStore) UpsertRefreshToken(ctx context.Context, payload types.UpdateRefreshTokenPayload) error {
-	args := m.Called(ctx, payload)
-	return args.Error(0)
-}
-
-type MockUserStore struct {
-	mock.Mock
-}
-
-func (m *MockUserStore) Create(ctx context.Context, user types.CreateUserDatabasePayload) (*types.UserResponse, error) {
-	args := m.Called(ctx, user)
-	return args.Get(0).(*types.UserResponse), args.Error(1)
-}
-
-func (m *MockUserStore) GetByID(ctx context.Context, id int) (*types.UserResponse, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*types.UserResponse), args.Error(1)
-}
-
-func (m *MockUserStore) GetByEmail(ctx context.Context, email string) (*types.UserResponse, error) {
-	args := m.Called(ctx, email)
-	return args.Get(0).(*types.UserResponse), args.Error(1)
-}
-
-func (m *MockUserStore) UpdateByID(ctx context.Context, id int, newUser types.UpdateUserPayload) (*types.UserResponse, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*types.UserResponse), args.Error(1)
-}
-
-func (m *MockUserStore) DeleteByID(ctx context.Context, id int) (int, error) {
-	args := m.Called(ctx, id)
-	if val, ok := args.Get(0).(int); ok {
-		return val, args.Error(1)
-	}
-	return 0, args.Error(1)
-}
-
 func TestHandleUserLogin(t *testing.T) {
-	setupTestServer := func() (*MockUserStore, *MockAuthStore, *MockUUIDGenerator, *httptest.Server, *mux.Router, config.Config) {
-		mockUUID := new(MockUUIDGenerator)
-		mockAuthStore := new(MockAuthStore)
-		mockUserStore := new(MockUserStore)
+	setupTestServer := func() (*mocks.MockUserStore, *mocks.MockAuthStore, *mocks.MockUUIDGenerator, *httptest.Server, *mux.Router, config.Config) {
+		mockUUID := new(mocks.MockUUIDGenerator)
+		mockAuthStore := new(mocks.MockAuthStore)
+		mockUserStore := new(mocks.MockUserStore)
 		mockAuthHandler := auth.NewAuthHandler(mockUserStore, mockAuthStore, mockUUID)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, nil, nil, mockAuthHandler)
@@ -234,7 +180,7 @@ func TestHandleUserLogin(t *testing.T) {
 
 		mockUserStore.On("GetByEmail", mock.MatchedBy(func(ctx context.Context) bool {
 			return ctx.Err() == context.Canceled
-		}), "johndoe@email.com").Return((*types.UserResponse)(nil), context.Canceled)
+		}), mock.Anything).Return((*types.UserResponse)(nil), context.Canceled)
 
 		payload := types.UserLoginPayload{
 			Email:    "johndoe@email.com",
@@ -358,10 +304,10 @@ func TestHandleUserLogin(t *testing.T) {
 }
 
 func TestHandleRefreshToken(t *testing.T) {
-	setupTestServer := func() (*MockUserStore, *MockAuthStore, *MockUUIDGenerator, *httptest.Server, *mux.Router, config.Config) {
-		mockUUID := new(MockUUIDGenerator)
-		mockAuthStore := new(MockAuthStore)
-		mockUserStore := new(MockUserStore)
+	setupTestServer := func() (*mocks.MockUserStore, *mocks.MockAuthStore, *mocks.MockUUIDGenerator, *httptest.Server, *mux.Router, config.Config) {
+		mockUUID := new(mocks.MockUUIDGenerator)
+		mockAuthStore := new(mocks.MockAuthStore)
+		mockUserStore := new(mocks.MockUserStore)
 		mockAuthHandler := auth.NewAuthHandler(mockUserStore, mockAuthStore, mockUUID)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, nil, nil, mockAuthHandler)

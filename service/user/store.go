@@ -3,12 +3,11 @@ package user
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/hoyci/book-store-api/types"
-	"github.com/hoyci/book-store-api/utils"
-	"github.com/lib/pq"
 )
 
 type UserStore struct {
@@ -21,7 +20,6 @@ func NewUserStore(db *sql.DB) *UserStore {
 
 func (s *UserStore) Create(ctx context.Context, newUser types.CreateUserDatabasePayload) (*types.UserResponse, error) {
 	user := &types.UserResponse{}
-
 	err := s.db.QueryRowContext(
 		ctx,
 		"INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at, updated_at, deleted_at",
@@ -44,10 +42,9 @@ func (s *UserStore) Create(ctx context.Context, newUser types.CreateUserDatabase
 	return user, nil
 }
 
-func (s *UserStore) GetByID(ctx context.Context, id int) (*types.UserResponse, error) {
+func (s *UserStore) GetByID(ctx context.Context, userID int) (*types.UserResponse, error) {
 	user := &types.UserResponse{}
-
-	err := s.db.QueryRowContext(ctx, "SELECT id, username, email, created_at, updated_at, deleted_at  FROM users WHERE id = $1 AND deleted_at IS null", id).
+	err := s.db.QueryRowContext(ctx, "SELECT id, username, email, created_at, updated_at, deleted_at  FROM users WHERE id = $1 AND deleted_at IS null", userID).
 		Scan(
 			&user.ID,
 			&user.Username,
@@ -81,47 +78,39 @@ func (s *UserStore) GetByEmail(ctx context.Context, email string) (*types.UserRe
 	return user, nil
 }
 
-func (s *UserStore) UpdateByID(ctx context.Context, id int, newUser types.UpdateUserPayload) (*types.UserResponse, error) {
-	query := fmt.Sprintf("UPDATE users SET updated_at = '%s', ", time.Now().Format("2006-01-02 15:04:05"))
-	args := []any{}
-	counter := 1
-
-	fields := []struct {
-		name  string
-		value any
-	}{
-		{"username", newUser.Username},
-		{"email", newUser.Email},
-	}
-
-	for _, field := range fields {
-		if !utils.IsNil(field.value) {
-			query += fmt.Sprintf("%s = $%d, ", field.name, counter)
-			if ptr, ok := field.value.(*[]string); ok {
-				args = append(args, pq.Array(*ptr))
-			} else {
-				args = append(args, field.value)
-			}
-			counter++
-		}
-	}
-
-	if len(args) == 0 {
-		return nil, fmt.Errorf("no fields to update for user with ID %d", id)
-	}
-
-	query = query[:len(query)-2] + fmt.Sprintf(" WHERE id = $%d RETURNING id, username, email, created_at, updated_at, deleted_at", counter)
-	args = append(args, id)
+func (s *UserStore) UpdateByID(ctx context.Context, userID int, newUser types.UpdateUserPayload) (*types.UserResponse, error) {
+	query := `
+			UPDATE users SET 
+			username = $2, 
+			email = $3,
+			updated_at = $4
+			WHERE id = $1
+			RETURNING 
+				id, 
+				username, 
+				email, 
+				created_at, 
+				deleted_at,
+				updated_at;
+			`
 
 	updatedUser := &types.UserResponse{}
-	err := s.db.QueryRowContext(ctx, query, args...).Scan(
+	err := s.db.QueryRowContext(
+		ctx,
+		query,
+		userID,
+		newUser.Username,
+		newUser.Email,
+		time.Now(),
+	).Scan(
 		&updatedUser.ID,
 		&updatedUser.Username,
 		&updatedUser.Email,
 		&updatedUser.CreatedAt,
-		&updatedUser.UpdatedAt,
 		&updatedUser.DeletedAt,
+		&updatedUser.UpdatedAt,
 	)
+
 	if err != nil {
 		return nil, err
 	}
@@ -129,17 +118,26 @@ func (s *UserStore) UpdateByID(ctx context.Context, id int, newUser types.Update
 	return updatedUser, nil
 }
 
-func (s *UserStore) DeleteByID(ctx context.Context, id int) (int, error) {
-	var returnedID int
-	err := s.db.QueryRowContext(
+var ErrUserNotFound = errors.New("user not found")
+
+func (s *UserStore) DeleteByID(ctx context.Context, userID int) error {
+	result, err := s.db.ExecContext(
 		ctx,
-		"UPDATE users SET deleted_at = $2 WHERE id = $1 RETURNING id",
-		id,
+		"UPDATE users SET deleted_at = $2 WHERE id = $1",
+		userID,
 		time.Now(),
-	).Scan(&returnedID)
+	)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	return returnedID, nil
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("%w: %d", ErrUserNotFound, userID)
+	}
+
+	return nil
 }

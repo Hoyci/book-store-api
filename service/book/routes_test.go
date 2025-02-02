@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/cmd/api"
+	"github.com/hoyci/book-store-api/mocks"
 	"github.com/hoyci/book-store-api/service/book"
 	"github.com/hoyci/book-store-api/types"
 	"github.com/hoyci/book-store-api/utils"
@@ -21,41 +22,9 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-type MockBookStore struct {
-	mock.Mock
-}
-
-func (m *MockBookStore) Create(ctx context.Context, book types.CreateBookPayload) (int, error) {
-	args := m.Called(ctx, book)
-	return args.Get(0).(int), args.Error(1)
-}
-
-func (m *MockBookStore) GetByID(ctx context.Context, id int) (*types.Book, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*types.Book), args.Error(1)
-}
-
-func (m *MockBookStore) GetMany(ctx context.Context) ([]*types.Book, error) {
-	args := m.Called(ctx)
-	return args.Get(0).([]*types.Book), args.Error(1)
-}
-
-func (m *MockBookStore) UpdateByID(ctx context.Context, id int, newBook types.UpdateBookPayload) (*types.Book, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*types.Book), args.Error(1)
-}
-
-func (m *MockBookStore) DeleteByID(ctx context.Context, id int) (int, error) {
-	args := m.Called(ctx, id)
-	if val, ok := args.Get(0).(int); ok {
-		return val, args.Error(1)
-	}
-	return 0, args.Error(1)
-}
-
 func TestHandleCreateBook(t *testing.T) {
-	setupTestServer := func() (*MockBookStore, *httptest.Server, *mux.Router) {
-		mockBookStore := new(MockBookStore)
+	setupTestServer := func() (*mocks.MockBookStore, *httptest.Server, *mux.Router) {
+		mockBookStore := new(mocks.MockBookStore)
 		mockBookHandler := book.NewBookHandler(mockBookStore)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, mockBookHandler, nil, nil)
@@ -278,8 +247,8 @@ func TestHandleCreateBook(t *testing.T) {
 }
 
 func TestHandleGetBookByID(t *testing.T) {
-	setupTestServer := func() (*MockBookStore, *httptest.Server, *mux.Router) {
-		mockBookStore := new(MockBookStore)
+	setupTestServer := func() (*mocks.MockBookStore, *httptest.Server, *mux.Router) {
+		mockBookStore := new(mocks.MockBookStore)
 		mockBookHandler := book.NewBookHandler(mockBookStore)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, mockBookHandler, nil, nil)
@@ -474,8 +443,8 @@ func TestHandleGetBookByID(t *testing.T) {
 }
 
 func TestHandleGetManyBooks(t *testing.T) {
-	setupTestServer := func() (*MockBookStore, *httptest.Server, *mux.Router) {
-		mockBookStore := new(MockBookStore)
+	setupTestServer := func() (*mocks.MockBookStore, *httptest.Server, *mux.Router) {
+		mockBookStore := new(mocks.MockBookStore)
 		mockBookHandler := book.NewBookHandler(mockBookStore)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, mockBookHandler, nil, nil)
@@ -686,8 +655,8 @@ func TestHandleGetManyBooks(t *testing.T) {
 }
 
 func TestHandleUpdateBookByID(t *testing.T) {
-	setupTestServer := func() (*MockBookStore, *httptest.Server, *mux.Router) {
-		mockBookStore := new(MockBookStore)
+	setupTestServer := func() (*mocks.MockBookStore, *httptest.Server, *mux.Router) {
+		mockBookStore := new(mocks.MockBookStore)
 		mockBookHandler := book.NewBookHandler(mockBookStore)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, mockBookHandler, nil, nil)
@@ -743,7 +712,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":["Field validation for 'UpdateBookPayload' failed on the 'atleastonefield' tag"]}`
+		expectedResponse := `{"error":["Field validation for 'Name' failed on the 'required' tag", "Field validation for 'Description' failed on the 'required' tag", "Field validation for 'Author' failed on the 'required' tag", "Field validation for 'Genres' failed on the 'required' tag", "Field validation for 'ReleaseYear' failed on the 'required' tag", "Field validation for 'NumberOfPages' failed on the 'required' tag", "Field validation for 'ImageUrl' failed on the 'required' tag"]}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -752,7 +721,15 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		_, ts, router := setupTestServer()
 		defer ts.Close()
 
-		invalidPayload := `{"name": ""}`
+		invalidPayload := `{
+			"name": "aa",
+			"description": "aaa",
+			"author": "aa",
+			"genres": ["a", "a"],
+			"release_year": 2100,
+			"number_of_pages": 1,
+			"image_url": "random_text"
+		}`
 		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(invalidPayload))
 		req.Header.Set("Authorization", "Bearer "+token)
 		req.Header.Set("Content-Type", "application/json")
@@ -770,7 +747,7 @@ func TestHandleUpdateBookByID(t *testing.T) {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
 
-		expectedResponse := `{"error":["Field validation for 'Name' failed on the 'min' tag"]}`
+		expectedResponse := `{"error":["Field validation for 'Name' failed on the 'min' tag", "Field validation for 'Description' failed on the 'min' tag", "Field validation for 'Author' failed on the 'min' tag", "Field validation for 'Genres[0]' failed on the 'min' tag", "Field validation for 'Genres[1]' failed on the 'min' tag", "Field validation for 'ReleaseYear' failed on the 'lte' tag", "Field validation for 'ImageUrl' failed on the 'url' tag"]}`
 		assert.JSONEq(t, expectedResponse, string(responseBody))
 	})
 
@@ -787,9 +764,13 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		}), 1, mock.Anything).Return(&types.Book{}, context.Canceled)
 
 		validPayload := `{
-			"name": "Go Programming - Updated",
-			"genres": ["Programming", "Go"],
-			"image_url": "http://example.com/go_updated.jpg"
+			"name": "book",
+			"description": "a description",
+			"author": "john doe",
+			"genres": ["fiction"],
+			"release_year": 2005,
+			"number_of_pages": 199,
+			"image_url": "http://google.com/randomimage.jpg"
 		}`
 
 		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(validPayload)).WithContext(canceledCtx)
@@ -818,9 +799,13 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		mockBookStore.On("UpdateByID", mock.Anything, mock.Anything, mock.Anything).Return(&types.Book{}, sql.ErrConnDone)
 
 		validPayload := `{
-			"name": "Go Programming - Updated",
-			"genres": ["Programming", "Go"],
-			"image_url": "http://example.com/go_updated.jpg"
+			"name": "book",
+			"description": "a description",
+			"author": "john doe",
+			"genres": ["fiction"],
+			"release_year": 2005,
+			"number_of_pages": 199,
+			"image_url": "http://google.com/randomimage.jpg"
 		}`
 
 		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(validPayload))
@@ -847,9 +832,13 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		mockBookStore.On("UpdateByID", mock.Anything, 1, mock.Anything).Return(&types.Book{}, sql.ErrNoRows)
 
 		validPayload := `{
-			"name": "Go Programming - Updated",
-			"genres": ["Programming", "Go"],
-			"image_url": "http://example.com/go_updated.jpg"
+			"name": "book",
+			"description": "a description",
+			"author": "john doe",
+			"genres": ["fiction"],
+			"release_year": 2005,
+			"number_of_pages": 199,
+			"image_url": "http://google.com/randomimage.jpg"
 		}`
 		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(validPayload))
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -877,6 +866,8 @@ func TestHandleUpdateBookByID(t *testing.T) {
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
+		mockedDate := time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC)
+
 		mockBookStore.On("UpdateByID", mock.Anything, 1, mock.Anything).Return(&types.Book{
 			ID:            1,
 			Name:          "Go Programming - Updated",
@@ -888,12 +879,16 @@ func TestHandleUpdateBookByID(t *testing.T) {
 			ImageUrl:      "http://example.com/go_updated.jpg",
 			CreatedAt:     time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC),
 			DeletedAt:     nil,
-			UpdatedAt:     utils.TimePtr(time.Date(0001, 01, 01, 0, 0, 0, 0, time.UTC)),
+			UpdatedAt:     &mockedDate,
 		}, nil)
 
 		validPayload := `{
 			"name": "Go Programming - Updated",
+			"description": "Updated description",
+			"author": "John Doe",
 			"genres": ["Programming", "Go"],
+			"release_year": 2024,
+			"number_of_pages": 350,
 			"image_url": "http://example.com/go_updated.jpg"
 		}`
 		req := httptest.NewRequest(http.MethodPut, ts.URL+"/api/v1/books/1", bytes.NewBufferString(validPayload))
@@ -931,8 +926,8 @@ func TestHandleUpdateBookByID(t *testing.T) {
 }
 
 func TestHandleDeleteBookByID(t *testing.T) {
-	setupTestServer := func() (*MockBookStore, *httptest.Server, *mux.Router) {
-		mockBookStore := new(MockBookStore)
+	setupTestServer := func() (*mocks.MockBookStore, *httptest.Server, *mux.Router) {
+		mockBookStore := new(mocks.MockBookStore)
 		mockBookHandler := book.NewBookHandler(mockBookStore)
 		apiServer := api.NewApiServer(":8080", nil)
 		router := apiServer.SetupRouter(nil, mockBookHandler, nil, nil)
@@ -990,7 +985,7 @@ func TestHandleDeleteBookByID(t *testing.T) {
 
 		mockBookStore.On("DeleteByID", mock.MatchedBy(func(ctx context.Context) bool {
 			return ctx.Err() == context.Canceled
-		}), mock.Anything).Return(0, context.Canceled)
+		}), mock.Anything).Return(context.Canceled)
 
 		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil).WithContext(canceledCtx)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -1015,7 +1010,7 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
-		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(0, sql.ErrConnDone)
+		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(sql.ErrConnDone)
 
 		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -1038,7 +1033,7 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
-		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(int(0), sql.ErrNoRows)
+		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(sql.ErrNoRows)
 
 		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -1065,7 +1060,7 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
-		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(0, errors.New("generic database error"))
+		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(errors.New("generic database error"))
 
 		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -1083,12 +1078,12 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		assert.JSONEq(t, expected, string(responseBody))
 	})
 
-	t.Run("it should return succssefully status and body when call endpoint with valid body", func(t *testing.T) {
+	t.Run("it should return the correct status", func(t *testing.T) {
 		token := utils.GenerateTestToken(1, "JohnDoe", "johndoe@example.com")
 		mockBookStore, ts, router := setupTestServer()
 		defer ts.Close()
 
-		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(int(1), nil)
+		mockBookStore.On("DeleteByID", mock.Anything, mock.Anything).Return(nil)
 
 		req := httptest.NewRequest(http.MethodDelete, ts.URL+"/api/v1/books/1", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
@@ -1099,14 +1094,6 @@ func TestHandleDeleteBookByID(t *testing.T) {
 		res := w.Result()
 		defer res.Body.Close()
 
-		assert.Equal(t, http.StatusOK, res.StatusCode)
-
-		responseBody, err := io.ReadAll(res.Body)
-		if err != nil {
-			t.Fatalf("Failed to read response body: %v", err)
-		}
-
-		expectedResponse := `{"id":1}`
-		assert.JSONEq(t, expectedResponse, string(responseBody))
+		assert.Equal(t, http.StatusNoContent, res.StatusCode)
 	})
 }

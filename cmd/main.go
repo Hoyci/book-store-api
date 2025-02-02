@@ -39,8 +39,4 @@ func main() {
 	http.ListenAndServe(path, apiServer.Router)
 }
 
-// TODO: Atualizar o UpdateUserByID e UpdateBookByID para receber o body completo da entidade (o front vai fazer um getByID para exibir os dados atuais e vai retornar os dados todos atualizados)
-// TODO: Adicionar restrição nos endpoints de usuários e books (somente o proprio usuário pode alterar e deletar suas informações) / (somente o proprio usuário pode alterar e deletar informações dos seus livros)
 // TODO: Adicionar swagger para documentar a API
-// TODO: Deve ser possível que o usuário atribua um livro a ele (Criar um projeto tipo o Skoob)
-// TODO: Endpoints de DELETE devem retornar status NoContent em caso de sucesso
