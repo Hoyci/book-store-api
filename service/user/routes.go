@@ -6,10 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/gorilla/mux"
 	"github.com/hoyci/book-store-api/types"
 	"github.com/hoyci/book-store-api/utils"
 )
@@ -81,29 +79,26 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) HandleGetUserByID(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	idStr := vars["id"]
-
-	id, err := strconv.Atoi(idStr)
-	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleGetUserByID", "User ID must be a positive integer")
+	userID, ok := utils.GetClaimFromContext[int](r, "UserID")
+	if !ok {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to retrieve userID from context"), "HandleGetUserByID", "An unexpected error occurred")
 		return
 	}
 
-	user, err := h.userStore.GetByID(r.Context())
+	user, err := h.userStore.GetByID(r.Context(), userID)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetUserByID", "Request canceled")
 			return
 		}
 
 		if err == sql.ErrConnDone {
-			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "An unexpected error occurred")
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetUserByID", "An unexpected error occurred")
 			return
 		}
 
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", fmt.Sprintf("No user found with ID %d", id))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleGetUserByID", fmt.Sprintf("No user found with ID %d", userID))
 			return
 		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetUserByID", "An unexpected error occurred")
@@ -114,12 +109,9 @@ func (h *UserHandler) HandleGetUserByID(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *UserHandler) HandleUpdateUserByID(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	idStr := vars["id"]
-
-	id, err := strconv.Atoi(idStr)
-	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleUpdateUserByID", "User ID must be a positive integer")
+	userID, ok := utils.GetClaimFromContext[int](r, "UserID")
+	if !ok {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to retrieve userID from context"), "HandleGetUserByID", "An unexpected error occurred")
 		return
 	}
 
@@ -139,20 +131,20 @@ func (h *UserHandler) HandleUpdateUserByID(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	user, err := h.userStore.UpdateByID(r.Context(), payload)
+	user, err := h.userStore.UpdateByID(r.Context(), userID, payload)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
-			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
+			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleUpdateUserByID", "Request canceled")
 			return
 		}
 
 		if err == sql.ErrConnDone {
-			utils.WriteError(w, http.StatusInternalServerError, err, "HandleGetBooks", "An unexpected error occurred")
+			utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateUserByID", "An unexpected error occurred")
 			return
 		}
 
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", fmt.Sprintf("No user found with ID %d", id))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleUpdateUserByID", fmt.Sprintf("No user found with ID %d", userID))
 			return
 		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUpdateUserByID", "An unexpected error occurred")
@@ -163,16 +155,13 @@ func (h *UserHandler) HandleUpdateUserByID(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *UserHandler) HandleDeleteUserByID(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	idStr := vars["id"]
-
-	id, err := strconv.Atoi(idStr)
-	if err != nil || id <= 0 {
-		utils.WriteError(w, http.StatusBadRequest, err, "HandleDeleteUserByID", "Book ID must be a positive integer")
+	userID, ok := utils.GetClaimFromContext[int](r, "UserID")
+	if !ok {
+		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to retrieve userID from context"), "HandleGetUserByID", "An unexpected error occurred")
 		return
 	}
 
-	err = h.userStore.DeleteByID(r.Context())
+	err := h.userStore.DeleteByID(r.Context(), userID)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")
@@ -185,7 +174,7 @@ func (h *UserHandler) HandleDeleteUserByID(w http.ResponseWriter, r *http.Reques
 		}
 
 		if err == sql.ErrNoRows {
-			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", fmt.Sprintf("No user found with ID %d", id))
+			utils.WriteError(w, http.StatusNotFound, err, "HandleDeleteUserByID", fmt.Sprintf("No user found with ID %d", userID))
 			return
 		}
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleDeleteUserByID", "An unexpected error occurred")

@@ -50,7 +50,7 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.userStore.GetByEmail(r.Context())
+	user, err := h.userStore.GetByEmail(r.Context(), requestPayload.Email)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
 			utils.WriteError(w, http.StatusServiceUnavailable, err, "HandleGetBooks", "Request canceled")

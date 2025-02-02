@@ -39,6 +39,4 @@ func main() {
 	http.ListenAndServe(path, apiServer.Router)
 }
 
-// TODO: Adicionar restrição nos endpoints de usuários e books (somente o proprio usuário pode alterar e deletar suas informações) / (somente o proprio usuário pode alterar e deletar informações dos seus livros)
 // TODO: Adicionar swagger para documentar a API
-// TODO: Deve ser possível que o usuário atribua um livro a ele (Criar um projeto tipo o Skoob)

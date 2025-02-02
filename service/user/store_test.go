@@ -90,16 +90,6 @@ func TestGetUserByID(t *testing.T) {
 		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24))},
 	})
 
-	t.Run("missing userID in context", func(t *testing.T) {
-		ctx := context.Background()
-
-		updatedUser, err := store.GetByID(ctx)
-
-		assert.Error(t, err)
-		assert.Equal(t, "failed to retrieve userID from context", err.Error())
-		assert.Nil(t, updatedUser)
-	})
-
 	t.Run("context canceled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -112,7 +102,7 @@ func TestGetUserByID(t *testing.T) {
 			RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24))},
 		})
 
-		user, err := store.GetByID(ctx)
+		user, err := store.GetByID(ctx, 1)
 
 		assert.Error(t, err)
 		assert.ErrorIs(t, err, context.Canceled)
@@ -128,7 +118,7 @@ func TestGetUserByID(t *testing.T) {
 			WithArgs(1).
 			WillReturnError(sql.ErrNoRows)
 
-		user, err := store.GetByID(ctx)
+		user, err := store.GetByID(ctx, 1)
 
 		assert.Nil(t, user)
 		assert.Error(t, err)
@@ -144,7 +134,7 @@ func TestGetUserByID(t *testing.T) {
 			WithArgs(1).
 			WillReturnError(sql.ErrConnDone)
 
-		user, err := store.GetByID(ctx)
+		user, err := store.GetByID(ctx, 1)
 
 		assert.Error(t, err)
 		assert.Zero(t, user)
@@ -163,7 +153,7 @@ func TestGetUserByID(t *testing.T) {
 			WillReturnRows(sqlmock.NewRows([]string{"id", "username", "email", "created_at", "updated_at", "deleted_at"}).
 				AddRow(1, "johndoe", "johndoe@email.com", expectedCreatedAt, nil, nil))
 
-		user, err := store.GetByID(ctx)
+		user, err := store.GetByID(ctx, 1)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, user)
@@ -187,37 +177,11 @@ func TestGetUserByEmail(t *testing.T) {
 
 	store := NewUserStore(db)
 
-	ctx := utils.SetClaimsToContext(context.Background(), &types.CustomClaims{
-		ID:               "ID-CRAZY",
-		UserID:           1,
-		Username:         "johndoe",
-		Email:            "johndoe@email.com",
-		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24))},
-	})
-
-	t.Run("missing userEmail in context", func(t *testing.T) {
-		ctx := context.Background()
-
-		updatedUser, err := store.GetByEmail(ctx)
-
-		assert.Error(t, err)
-		assert.Equal(t, "failed to retrieve userEmail from context", err.Error())
-		assert.Nil(t, updatedUser)
-	})
-
 	t.Run("context canceled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		ctx = utils.SetClaimsToContext(ctx, &types.CustomClaims{
-			ID:               "ID-CRAZY",
-			UserID:           1,
-			Username:         "johndoe",
-			Email:            "johndoe@email.com",
-			RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24))},
-		})
-
-		user, err := store.GetByEmail(ctx)
+		user, err := store.GetByEmail(ctx, "johndoe@email.com")
 
 		assert.Error(t, err)
 		assert.ErrorIs(t, err, context.Canceled)
@@ -233,7 +197,7 @@ func TestGetUserByEmail(t *testing.T) {
 			WithArgs("johndoe@email.com").
 			WillReturnError(sql.ErrNoRows)
 
-		user, err := store.GetByEmail(ctx)
+		user, err := store.GetByEmail(context.Background(), "johndoe@email.com")
 
 		assert.Nil(t, user)
 		assert.Error(t, err)
@@ -249,7 +213,7 @@ func TestGetUserByEmail(t *testing.T) {
 			WithArgs("johndoe@email.com").
 			WillReturnError(sql.ErrConnDone)
 
-		user, err := store.GetByEmail(ctx)
+		user, err := store.GetByEmail(context.Background(), "johndoe@email.com")
 
 		assert.Error(t, err)
 		assert.Zero(t, user)
@@ -270,7 +234,7 @@ func TestGetUserByEmail(t *testing.T) {
 
 		expectedID := 1
 
-		user, err := store.GetByEmail(ctx)
+		user, err := store.GetByEmail(context.Background(), "johndoe@email.com")
 
 		assert.NoError(t, err)
 		assert.NotNil(t, user)
@@ -302,16 +266,6 @@ func TestUpdateByID(t *testing.T) {
 		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24))},
 	})
 
-	t.Run("missing userID in context", func(t *testing.T) {
-		ctx := context.Background()
-
-		updatedUser, err := store.UpdateByID(ctx, types.UpdateUserPayload{})
-
-		assert.Error(t, err)
-		assert.Equal(t, "failed to retrieve userID from context", err.Error())
-		assert.Nil(t, updatedUser)
-	})
-
 	t.Run("context canceled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -324,7 +278,7 @@ func TestUpdateByID(t *testing.T) {
 			RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24))},
 		})
 
-		updatedUser, err := store.UpdateByID(ctx, types.UpdateUserPayload{
+		updatedUser, err := store.UpdateByID(ctx, 1, types.UpdateUserPayload{
 			Username: "Updated Username",
 			Email:    "Updated Email",
 		})
@@ -360,7 +314,7 @@ func TestUpdateByID(t *testing.T) {
 			).
 			WillReturnError(sql.ErrNoRows)
 
-		id, err := store.UpdateByID(ctx, types.UpdateUserPayload{
+		id, err := store.UpdateByID(ctx, 1, types.UpdateUserPayload{
 			Username: "Updated Username",
 			Email:    "Updated Email",
 		})
@@ -397,7 +351,7 @@ func TestUpdateByID(t *testing.T) {
 			).
 			WillReturnError(sql.ErrConnDone)
 
-		id, err := store.UpdateByID(ctx, types.UpdateUserPayload{
+		id, err := store.UpdateByID(ctx, 1, types.UpdateUserPayload{
 			Username: "Updated Username",
 			Email:    "Updated Email",
 		})
@@ -444,7 +398,7 @@ func TestUpdateByID(t *testing.T) {
 				&mockedDate,
 			))
 
-		updatedUser, err := store.UpdateByID(ctx, types.UpdateUserPayload{
+		updatedUser, err := store.UpdateByID(ctx, 1, types.UpdateUserPayload{
 			Username: "Updated Username",
 			Email:    "Updated Email",
 		})
@@ -480,15 +434,6 @@ func TestDeleteByID(t *testing.T) {
 		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24))},
 	})
 
-	t.Run("missing userID in context", func(t *testing.T) {
-		ctx := context.Background()
-
-		err := store.DeleteByID(ctx)
-
-		assert.Error(t, err)
-		assert.Equal(t, "failed to retrieve userID from context", err.Error())
-	})
-
 	t.Run("context canceled", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -501,7 +446,7 @@ func TestDeleteByID(t *testing.T) {
 			RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24))},
 		})
 
-		err := store.DeleteByID(ctx)
+		err := store.DeleteByID(ctx, 1)
 
 		assert.Error(t, err)
 		assert.ErrorIs(t, err, context.Canceled)
@@ -515,7 +460,7 @@ func TestDeleteByID(t *testing.T) {
 			WithArgs(1, sqlmock.AnyArg()).
 			WillReturnError(ErrUserNotFound)
 
-		err := store.DeleteByID(ctx)
+		err := store.DeleteByID(ctx, 1)
 
 		assert.Error(t, err)
 		assert.ErrorContains(t, err, "user not found")
@@ -531,7 +476,7 @@ func TestDeleteByID(t *testing.T) {
 			WithArgs(1, sqlmock.AnyArg()).
 			WillReturnError(sql.ErrConnDone)
 
-		err := store.DeleteByID(ctx)
+		err := store.DeleteByID(ctx, 1)
 
 		assert.Error(t, err)
 		assert.Equal(t, err, sql.ErrConnDone)
@@ -546,7 +491,7 @@ func TestDeleteByID(t *testing.T) {
 			WithArgs(1, sqlmock.AnyArg()).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 
-		err := store.DeleteByID(ctx)
+		err := store.DeleteByID(ctx, 1)
 
 		assert.NoError(t, err)
 

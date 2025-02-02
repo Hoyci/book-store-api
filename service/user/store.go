@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/hoyci/book-store-api/types"
-	"github.com/hoyci/book-store-api/utils"
 )
 
 type UserStore struct {
@@ -43,13 +42,7 @@ func (s *UserStore) Create(ctx context.Context, newUser types.CreateUserDatabase
 	return user, nil
 }
 
-func (s *UserStore) GetByID(ctx context.Context) (*types.UserResponse, error) {
-	claimsCtx, ok := utils.GetClaimsFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("failed to retrieve userID from context")
-	}
-	userID := claimsCtx.UserID
-
+func (s *UserStore) GetByID(ctx context.Context, userID int) (*types.UserResponse, error) {
 	user := &types.UserResponse{}
 	err := s.db.QueryRowContext(ctx, "SELECT id, username, email, created_at, updated_at, deleted_at  FROM users WHERE id = $1 AND deleted_at IS null", userID).
 		Scan(
@@ -67,15 +60,9 @@ func (s *UserStore) GetByID(ctx context.Context) (*types.UserResponse, error) {
 	return user, nil
 }
 
-func (s *UserStore) GetByEmail(ctx context.Context) (*types.UserResponse, error) {
-	claimsCtx, ok := utils.GetClaimsFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("failed to retrieve userEmail from context")
-	}
-	userEmail := claimsCtx.Email
-
+func (s *UserStore) GetByEmail(ctx context.Context, email string) (*types.UserResponse, error) {
 	user := &types.UserResponse{}
-	err := s.db.QueryRowContext(ctx, "SELECT id, username, email, created_at, updated_at, deleted_at FROM users WHERE email = $1 AND deleted_at IS null", userEmail).
+	err := s.db.QueryRowContext(ctx, "SELECT id, username, email, created_at, updated_at, deleted_at FROM users WHERE email = $1 AND deleted_at IS null", email).
 		Scan(
 			&user.ID,
 			&user.Username,
@@ -91,13 +78,7 @@ func (s *UserStore) GetByEmail(ctx context.Context) (*types.UserResponse, error)
 	return user, nil
 }
 
-func (s *UserStore) UpdateByID(ctx context.Context, newUser types.UpdateUserPayload) (*types.UserResponse, error) {
-	claimsCtx, ok := utils.GetClaimsFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("failed to retrieve userID from context")
-	}
-	userID := claimsCtx.UserID
-
+func (s *UserStore) UpdateByID(ctx context.Context, userID int, newUser types.UpdateUserPayload) (*types.UserResponse, error) {
 	query := `
 			UPDATE users SET 
 			username = $2, 
@@ -139,13 +120,7 @@ func (s *UserStore) UpdateByID(ctx context.Context, newUser types.UpdateUserPayl
 
 var ErrUserNotFound = errors.New("user not found")
 
-func (s *UserStore) DeleteByID(ctx context.Context) error {
-	claimsCtx, ok := utils.GetClaimsFromContext(ctx)
-	if !ok {
-		return fmt.Errorf("failed to retrieve userID from context")
-	}
-	userID := claimsCtx.UserID
-
+func (s *UserStore) DeleteByID(ctx context.Context, userID int) error {
 	result, err := s.db.ExecContext(
 		ctx,
 		"UPDATE users SET deleted_at = $2 WHERE id = $1",
