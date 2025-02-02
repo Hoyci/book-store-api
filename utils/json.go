@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hoyci/book-store-api/types"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,17 +33,11 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	return json.NewEncoder(w).Encode(v)
 }
 
-func WriteError(w http.ResponseWriter, status int, err error, context string, clientErrorMessage any) {
+func WriteError[T types.ErrorResponse](w http.ResponseWriter, status int, err error, context string, clientError T) {
 	Log.WithFields(logrus.Fields{
 		"error":   err.Error(),
 		"context": context,
 	}).Error(err.Error())
 
-	WriteJSON(
-		w,
-		status,
-		map[string]any{
-			"error": clientErrorMessage,
-		},
-	)
+	WriteJSON(w, status, clientError)
 }

@@ -1,0 +1,607 @@
+basePath: /api/v1
+definitions:
+  types.BadRequestResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  types.BadRequestStructResponse:
+    properties:
+      error:
+        items:
+          type: string
+        type: array
+    type: object
+  types.Book:
+    properties:
+      author:
+        type: string
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      description:
+        type: string
+      genres:
+        items:
+          type: string
+        type: array
+      id:
+        type: integer
+      image_url:
+        type: string
+      name:
+        type: string
+      number_of_pages:
+        type: integer
+      release_year:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  types.ContextCanceledResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  types.CreateBookPayload:
+    properties:
+      author:
+        minLength: 3
+        type: string
+      description:
+        minLength: 5
+        type: string
+      genres:
+        items:
+          type: string
+        type: array
+      image_url:
+        type: string
+      name:
+        minLength: 3
+        type: string
+      number_of_pages:
+        minimum: 1
+        type: integer
+      release_year:
+        maximum: 2099
+        minimum: 1500
+        type: integer
+    required:
+    - author
+    - description
+    - genres
+    - image_url
+    - name
+    - number_of_pages
+    - release_year
+    type: object
+  types.CreateBookResponse:
+    properties:
+      id:
+        type: integer
+    type: object
+  types.CreateUserRequestPayload:
+    properties:
+      confirm_password:
+        minLength: 8
+        type: string
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      username:
+        minLength: 5
+        type: string
+    required:
+    - confirm_password
+    - email
+    - password
+    - username
+    type: object
+  types.CreateUserResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  types.GetBooksResponse:
+    properties:
+      books:
+        items:
+          $ref: '#/definitions/types.Book'
+        type: array
+    type: object
+  types.InternalServerErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  types.NotFoundResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  types.RefreshTokenPayload:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  types.UnauthorizedResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  types.UpdateBookPayload:
+    properties:
+      author:
+        minLength: 3
+        type: string
+      description:
+        minLength: 5
+        type: string
+      genres:
+        items:
+          type: string
+        type: array
+      image_url:
+        type: string
+      name:
+        minLength: 3
+        type: string
+      number_of_pages:
+        minimum: 1
+        type: integer
+      release_year:
+        maximum: 2099
+        minimum: 1500
+        type: integer
+    required:
+    - author
+    - description
+    - genres
+    - image_url
+    - name
+    - number_of_pages
+    - release_year
+    type: object
+  types.UpdateRefreshTokenResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  types.UpdateUserPayload:
+    properties:
+      email:
+        type: string
+      username:
+        minLength: 5
+        type: string
+    required:
+    - email
+    - username
+    type: object
+  types.UserLoginPayload:
+    properties:
+      email:
+        type: string
+      password:
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  types.UserLoginResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  types.UserResponse:
+    properties:
+      createdAt:
+        type: string
+      deletedAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: integer
+      updatedAt:
+        type: string
+      username:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API para gestão de livros
+  title: Book Store API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Dados para login do usuário
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.UserLoginPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Tokens de acesso e refresh
+          schema:
+            $ref: '#/definitions/types.UserLoginResponse'
+        "400":
+          description: Validation errors for payload
+          schema:
+            $ref: '#/definitions/types.BadRequestStructResponse'
+        "404":
+          description: No user found with the given email
+          schema:
+            $ref: '#/definitions/types.NotFoundResponse'
+        "500":
+          description: An unexpected error occurred
+          schema:
+            $ref: '#/definitions/types.InternalServerErrorResponse'
+      summary: Realizar login do usuário
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Payload contendo o refresh token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.RefreshTokenPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Novos tokens de acesso e refresh
+          schema:
+            $ref: '#/definitions/types.UpdateRefreshTokenResponse'
+        "400":
+          description: Validation errors for payload
+          schema:
+            $ref: '#/definitions/types.BadRequestStructResponse'
+        "401":
+          description: Refresh token is invalid or has been expired
+          schema:
+            $ref: '#/definitions/types.UnauthorizedResponse'
+        "404":
+          description: No refresh token found with the given user ID
+          schema:
+            $ref: '#/definitions/types.NotFoundResponse'
+        "500":
+          description: An unexpected error occurred
+          schema:
+            $ref: '#/definitions/types.InternalServerErrorResponse'
+      summary: Atualizar tokens (Refresh Token)
+      tags:
+      - Auth
+  /books:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Lista de livros
+          schema:
+            $ref: '#/definitions/types.GetBooksResponse'
+        "500":
+          description: An unexpected error occurred
+          schema:
+            $ref: '#/definitions/types.InternalServerErrorResponse'
+        "503":
+          description: Request canceled
+          schema:
+            $ref: '#/definitions/types.ContextCanceledResponse'
+      security:
+      - BearerAuth: []
+      summary: Listar livros
+      tags:
+      - Books
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Dados do livro
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.CreateBookPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: ID do novo livro
+          schema:
+            $ref: '#/definitions/types.CreateBookResponse'
+        "400":
+          description: Validation errors for payload
+          schema:
+            $ref: '#/definitions/types.BadRequestStructResponse'
+        "500":
+          description: An unexpected error occurred
+          schema:
+            $ref: '#/definitions/types.InternalServerErrorResponse'
+        "503":
+          description: Request canceled
+          schema:
+            $ref: '#/definitions/types.ContextCanceledResponse'
+      security:
+      - BearerAuth: []
+      summary: Criar novo livro
+      tags:
+      - Books
+  /books/{id}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do livro a ser excluído
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Book ID must be a positive integer
+          schema:
+            $ref: '#/definitions/types.BadRequestResponse'
+        "404":
+          description: No book found with given ID
+          schema:
+            $ref: '#/definitions/types.NotFoundResponse'
+        "500":
+          description: An unexpected error occurred
+          schema:
+            $ref: '#/definitions/types.InternalServerErrorResponse'
+        "503":
+          description: Request canceled
+          schema:
+            $ref: '#/definitions/types.ContextCanceledResponse'
+      security:
+      - BearerAuth: []
+      summary: Excluir livro por ID
+      tags:
+      - Books
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do livro
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Detalhes do livro
+          schema:
+            $ref: '#/definitions/types.Book'
+        "400":
+          description: Book ID must be a positive integer
+          schema:
+            $ref: '#/definitions/types.BadRequestResponse'
+        "404":
+          description: No book found with given ID
+          schema:
+            $ref: '#/definitions/types.NotFoundResponse'
+        "500":
+          description: An unexpected error occurred
+          schema:
+            $ref: '#/definitions/types.InternalServerErrorResponse'
+        "503":
+          description: Request canceled
+          schema:
+            $ref: '#/definitions/types.ContextCanceledResponse'
+      security:
+      - BearerAuth: []
+      summary: Obter livro por ID
+      tags:
+      - Books
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do livro a ser atualizado
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Dados para atualização do livro
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdateBookPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Livro atualizado
+          schema:
+            $ref: '#/definitions/types.Book'
+        "400":
+          description: Validation errors for payload
+          schema:
+            $ref: '#/definitions/types.BadRequestStructResponse'
+        "404":
+          description: No book found with given ID
+          schema:
+            $ref: '#/definitions/types.NotFoundResponse'
+        "500":
+          description: An unexpected error occurred
+          schema:
+            $ref: '#/definitions/types.InternalServerErrorResponse'
+        "503":
+          description: Request canceled
+          schema:
+            $ref: '#/definitions/types.ContextCanceledResponse'
+      security:
+      - BearerAuth: []
+      summary: Atualizar livro por ID
+      tags:
+      - Books
+  /users:
+    delete:
+      description: Deletes the user associated with the authenticated user's ID extracted
+        from the request context.
+      responses:
+        "204":
+          description: User successfully deleted
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.UnauthorizedResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/types.NotFoundResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/types.InternalServerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete user by ID
+      tags:
+      - Users
+    get:
+      consumes:
+      - application/json
+      description: Retrieves user details based on the authenticated user's ID extracted
+        from the request context.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User details successfully retrieved
+          schema:
+            $ref: '#/definitions/types.UserResponse'
+        "400":
+          description: Bad request
+          schema:
+            $ref: '#/definitions/types.BadRequestResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.UnauthorizedResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/types.NotFoundResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/types.InternalServerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get user by ID
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Payload contendo os dados do novo usuário
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.CreateUserRequestPayload'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Usuário criado com sucesso
+          schema:
+            $ref: '#/definitions/types.CreateUserResponse'
+        "400":
+          description: Validation errors for payload
+          schema:
+            $ref: '#/definitions/types.BadRequestStructResponse'
+        "500":
+          description: An unexpected error occurred
+          schema:
+            $ref: '#/definitions/types.InternalServerErrorResponse'
+        "503":
+          description: Request canceled
+          schema:
+            $ref: '#/definitions/types.ContextCanceledResponse'
+      summary: Criar um novo usuário
+      tags:
+      - Users
+    put:
+      consumes:
+      - application/json
+      description: Updates user details based on the authenticated user's ID extracted
+        from the request context.
+      parameters:
+      - description: User update payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/types.UpdateUserPayload'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User successfully updated
+          schema:
+            $ref: '#/definitions/types.UserResponse'
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/types.BadRequestResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/types.UnauthorizedResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/types.NotFoundResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/types.InternalServerErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user by ID
+      tags:
+      - Users
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
