@@ -1,0 +1,23 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  cmd = "go build -o ./tmp/main.exe cmd/main.go"
+  bin = "./tmp/main.exe"
+  delay = 1000
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "vendor"]
+  exclude_file = []
+  exclude_regex = ["_test.go"]
+  log = "air.log"
+  include_dir = []
+
+[log]
+  timestamps = true
+
+[color]
+  app = ""
+  build = "yellow"
+  main = "magenta"
+  runner = "green"
+  watcher = "cyan"
