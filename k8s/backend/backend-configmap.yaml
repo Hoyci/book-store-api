@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-configmap
+  annotations:
+    description: Configuration for backend application
+data:
+  PORT: "8080"
+  ENV: "production"
+  JWT_EXP: "604800"

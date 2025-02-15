@@ -49,29 +49,30 @@ spec:
               command:
                 - bash
                 - -ec
-                - 'PGUSER=$POSTGRES_USER PGPASSWORD=$POSTGRES_PASSWORD PGDATABASE=$POSTGRES_DB psql -w -h 127.0.0.1 -c "SELECT 1"'
+                - 'PGUSER=$POSTGRES_USER PGPASSWORD=$POSTGRES_PASSWORD PGDATABASE=$POSTGRES_DB psql -w -h localhost -c "SELECT 1"'
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
             successThreshold: 1
-            failureThreshold: 6
+            failureThreshold: 10
           readinessProbe:
             exec:
               command:
                 - bash
                 - -ec
-                - 'PGUSER=$POSTGRES_USER PGPASSWORD=$POSTGRES_PASSWORD PGDATABASE=$POSTGRES_DB psql -w -h 127.0.0.1 -c "SELECT 1"'
-            initialDelaySeconds: 5
+                - 'PGUSER=$POSTGRES_USER PGPASSWORD=$POSTGRES_PASSWORD PGDATABASE=$POSTGRES_DB psql -w -h localhost -c "SELECT 1"'
+            initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
             successThreshold: 1
-            failureThreshold: 6
+            failureThreshold: 10
           volumeMounts:
             - name: data
               mountPath: /bitnami/postgresql
   volumeClaimTemplates:
     - metadata:
         name: data
+        storageClassName: standard
       spec:
         accessModes:
           - "ReadWriteOnce"

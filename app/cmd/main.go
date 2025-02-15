@@ -25,7 +25,7 @@ import (
 // @name Authorization
 func main() {
 	db := db.NewPGStorage()
-	path := fmt.Sprintf("127.0.0.1:%s", config.Envs.Port)
+	path := fmt.Sprintf("0.0.0.0:%s", config.Envs.Port)
 
 	apiServer := api.NewApiServer(path, db)
 
