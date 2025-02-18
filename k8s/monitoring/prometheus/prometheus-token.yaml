@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prometheus-token
+  namespace: monitoring
+  annotations:
+    kubernetes.io/service-account.name: prometheus # Associa ao ServiceAccount
+type: kubernetes.io/service-account-token
