@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: observability
+data:
+  otel-collector-config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+          http:
+
+    exporters:
+      loki:
+        endpoint: "http://loki.logging.svc.cluster.local:3100"
+        tls:
+          insecure: true
+      otlphttp:
+        endpoint: "http://tempo.tracing.svc.cluster.local:4318"
+        tls:
+          insecure: true
+      prometheusremotewrite:
+        endpoint: "http://mimir-nginx.metrics.svc:80/prometheus/api/v1/push"
+        tls:
+          insecure: true
+
+    processors:
+      batch:
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlphttp]
+        metrics:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [prometheusremotewrite]
+        logs:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [loki]

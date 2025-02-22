@@ -1,16 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend-deployment
+  name: app-deployment
+  namespace: app
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: backend
+      app: app
   template:
     metadata:
       labels:
-        app: backend
+        app: app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/api/v1/metrics"
     spec:
       initContainers:
         - name: migration
@@ -21,10 +26,10 @@ spec:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: backend-secrets
+                  name: app-secrets
                   key: DATABASE_URL
       containers:
-        - name: backend
+        - name: app
           image: book-store-api:1.0.1
           imagePullPolicy: Never
           command: ["./main"]
@@ -32,32 +37,31 @@ spec:
             - name: PORT
               valueFrom:
                 configMapKeyRef:
-                  name: backend-configmap
+                  name: app-configmap
                   key: PORT
             - name: ENV
               valueFrom:
                 configMapKeyRef:
-                  name: backend-configmap
+                  name: app-configmap
                   key: ENV
             - name: JWT_EXP
               valueFrom:
                 configMapKeyRef:
-                  name: backend-configmap
+                  name: app-configmap
                   key: JWT_EXP
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
-                  name: backend-secrets
+                  name: app-secrets
                   key: DATABASE_URL
             - name: SECRET_KEY
               valueFrom:
                 secretKeyRef:
-                  name: backend-secrets
+                  name: app-secrets
                   key: SECRET_KEY
           ports:
-            - name: backend
-              containerPort: 8080
-              protocol: TCP
+            - containerPort: 8080
+            - containerPort: 8081
           resources:
             requests:
               cpu: "100m"
@@ -69,9 +73,9 @@ spec:
             httpGet:
               path: /api/v1/healthcheck
               port: 8080
-            initialDelaySeconds: 20
-            periodSeconds: 10
-            timeoutSeconds: 5
+            initialDelaySeconds: 25
+            periodSeconds: 5
+            timeoutSeconds: 3
             failureThreshold: 3
           readinessProbe:
             httpGet:

@@ -13,6 +13,7 @@ import (
 	"github.com/hoyci/book-store-api/service/user"
 	"github.com/hoyci/book-store-api/utils"
 	httpSwagger "github.com/swaggo/http-swagger"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 type APIServer struct {
@@ -43,6 +44,10 @@ func (s *APIServer) SetupRouter(
 	router.Use(utils.LoggingMiddleware)
 
 	subrouter := router.PathPrefix("/api/v1").Subrouter()
+
+	subrouter.Use(func(next http.Handler) http.Handler {
+		return otelhttp.NewHandler(next, "http-server")
+	})
 
 	subrouter.HandleFunc("/swagger.json", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "docs/swagger.json")

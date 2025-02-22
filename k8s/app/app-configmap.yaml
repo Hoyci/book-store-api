@@ -1,7 +1,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: backend-configmap
+  name: app-configmap
+  namespace: app
   annotations:
     description: Configuration for backend application
 data:
