@@ -1,5 +1,19 @@
 services:
-  db:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: sh -c "while ! nc -z postgres 5432; do sleep 2; done && ./migrate up && ./main"
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://user:password@postgres:5432/postgres?sslmode=disable
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+
+  postgres:
     image: bitnami/postgresql:latest
     environment:
       POSTGRES_USER: user
@@ -9,6 +23,45 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ../k8s/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./k8s/grafana/provisioning:/etc/grafana/provisioning
+      - ./k8s/grafana/dashboards:/var/lib/grafana/dashboards
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - app-network
 
 volumes:
   db-data:
+  grafana-data:
+
+networks:
+  app-network:
+    driver: bridge

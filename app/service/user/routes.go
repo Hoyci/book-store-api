@@ -59,6 +59,13 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	user, _ := h.userStore.GetByEmail(r.Context(), requestPayload.Email)
+
+	if user != nil {
+		utils.WriteError(w, http.StatusConflict, fmt.Errorf("email is already in use"), "HandleCreateUser", types.InternalServerErrorResponse{Error: "This email is already in use"})
+		return
+	}
+
 	hashedPassword, err := utils.HashPassword(requestPayload.Password)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateUser", types.InternalServerErrorResponse{Error: "An unexpected error occurred"})
