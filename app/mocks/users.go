@@ -21,9 +21,9 @@ func (m *MockUserStore) GetByID(ctx context.Context, userID int) (*types.UserRes
 	return args.Get(0).(*types.UserResponse), args.Error(1)
 }
 
-func (m *MockUserStore) GetByEmail(ctx context.Context, email string) (*types.UserResponse, error) {
+func (m *MockUserStore) GetByEmail(ctx context.Context, email string) (*types.GetByEmailResponse, error) {
 	args := m.Called(ctx, email)
-	return args.Get(0).(*types.UserResponse), args.Error(1)
+	return args.Get(0).(*types.GetByEmailResponse), args.Error(1)
 }
 
 func (m *MockUserStore) UpdateByID(ctx context.Context, userID int, newUser types.UpdateUserPayload) (*types.UserResponse, error) {

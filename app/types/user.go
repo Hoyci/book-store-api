@@ -8,12 +8,22 @@ import (
 type UserStore interface {
 	Create(ctx context.Context, user CreateUserDatabasePayload) (*UserResponse, error)
 	GetByID(ctx context.Context, userID int) (*UserResponse, error)
-	GetByEmail(ctx context.Context, email string) (*UserResponse, error)
+	GetByEmail(ctx context.Context, email string) (*GetByEmailResponse, error)
 	UpdateByID(ctx context.Context, userID int, user UpdateUserPayload) (*UserResponse, error)
 	DeleteByID(ctx context.Context, userID int) error
 }
 
 type User struct {
+	ID           int        `json:"id"`
+	Username     string     `json:"username"`
+	Email        string     `json:"email"`
+	PasswordHash string     `json:"passwordHash"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	DeletedAt    *time.Time `json:"deletedAt"`
+	UpdatedAt    *time.Time `json:"updatedAt"`
+}
+
+type GetByEmailResponse struct {
 	ID           int        `json:"id"`
 	Username     string     `json:"username"`
 	Email        string     `json:"email"`

@@ -10,6 +10,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/hoyci/book-store-api/types"
 	"github.com/hoyci/book-store-api/utils"
+	"go.opentelemetry.io/otel"
 )
 
 var validate = validator.New()
@@ -43,6 +44,10 @@ func NewUserHandler(userStore types.UserStore) *UserHandler {
 // @Failure 503 {object} types.ContextCanceledResponse "Request canceled"
 // @Router /users [post]
 func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tracer := otel.Tracer("user-handler")
+
+	_, validationSpan := tracer.Start(ctx, "ValidateRequest")
 	var requestPayload types.CreateUserRequestPayload
 	if err := utils.ParseJSON(r, &requestPayload); err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateUser", types.BadRequestResponse{Error: "Body is not a valid json"})
@@ -58,6 +63,7 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusBadRequest, err, "HandleCreateUser", types.BadRequestStructResponse{Error: errorMessages})
 		return
 	}
+	validationSpan.End()
 
 	user, _ := h.userStore.GetByEmail(r.Context(), requestPayload.Email)
 
@@ -66,7 +72,7 @@ func (h *UserHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashedPassword, err := utils.HashPassword(requestPayload.Password)
+	hashedPassword, err := utils.HashPassword(ctx, requestPayload.Password)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleCreateUser", types.InternalServerErrorResponse{Error: "An unexpected error occurred"})
 	}
