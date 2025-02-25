@@ -74,7 +74,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(http_request_size_bytes_count)",
+          "expr": "sum(http_request_size_bytes_count{handler!~\"metrics|healthcheck\"})",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -148,7 +148,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "(\r\n  sum(rate(http_requests_total{code=~\"2..\"}[5m]))\r\n  /\r\n  sum(rate(http_requests_total[5m]))\r\n)\r\n* 100",
+          "expr": "(\r\n  sum(rate(http_requests_total{code=~\"2..\", handler!~\"metrics|healthcheck\"}[5m]))\r\n  /\r\n  sum(rate(http_requests_total{handler!~\"metrics|healthcheck\"}[5m]))\r\n)\r\n* 100",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -214,7 +214,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "( \r\n  sum(rate(http_request_duration_seconds_sum[5m]))\r\n  /\r\n  sum(rate(http_request_duration_seconds_count[5m]))\r\n) \r\n* 1000",
+          "expr": "( \r\n  sum(rate(http_request_duration_seconds_sum{handler!~\"metrics|healthcheck\"}[5m]))\r\n  /\r\n  sum(rate(http_request_duration_seconds_count{handler!~\"metrics|healthcheck\"}[5m]))\r\n) \r\n* 1000",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -447,7 +447,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(rate(http_requests_total[5m]))",
+          "expr": "sum(rate(http_requests_total{handler!~\"metrics|healthcheck\"}[5m]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -581,7 +581,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(rate(http_requests_total{code=~\"2..\"}[5m])) / sum(rate(http_requests_total[5m])) * 100",
+          "expr": "(\r\n  sum(rate(http_requests_total{code=~\"2..\", handler!~\"metrics|healthcheck\"}[5m])) \r\n  / \r\n  sum(rate(http_requests_total{handler!~\"metrics|healthcheck\"}[5m]))\r\n) * 100",
           "hide": false,
           "instant": false,
           "legendFormat": "Success",
@@ -594,7 +594,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "(\r\n  sum(increase(http_requests_total{code=~\"4..\"}[5m])) \r\n  / \r\n  sum(increase(http_requests_total[5m]))\r\n) * 100",
+          "expr": "(\r\n  sum(rate(http_requests_total{code=~\"4..\",handler!~\"metrics|healthcheck\"}[5m])) \r\n  / \r\n  sum(rate(http_requests_total{handler!~\"metrics|healthcheck\"}[5m]))\r\n) * 100",
           "hide": false,
           "instant": false,
           "legendFormat": "Error",
@@ -689,7 +689,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "( \r\n  sum(rate(http_request_duration_seconds_sum[5m]))\r\n  /\r\n  sum(rate(http_request_duration_seconds_count[5m]))\r\n) \r\n* 1000",
+          "expr": "(\r\n  ( \r\n  sum(rate(http_request_duration_seconds_sum{handler!~\"metrics|healthcheck\"}[5m]))\r\n  /\r\n  sum(rate(http_request_duration_seconds_count{handler!~\"metrics|healthcheck\"}[5m]))\r\n  ) * 1000\r\n)",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -725,7 +725,7 @@
               "viz": false
             },
             "insertNulls": false,
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 1,
             "pointSize": 5,
             "scaleDistribution": {
@@ -1455,7 +1455,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1552,7 +1553,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1649,7 +1651,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1746,7 +1749,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1797,7 +1801,7 @@
     }
   ],
   "preload": false,
-  "refresh": "10s",
+  "refresh": "5s",
   "schemaVersion": 40,
   "tags": ["go", "golang"],
   "templating": {
@@ -1844,6 +1848,6 @@
   "timezone": "",
   "title": "Book Store API Metrics",
   "uid": "CgCw8jKZz",
-  "version": 38,
+  "version": 49,
   "weekStart": ""
 }
