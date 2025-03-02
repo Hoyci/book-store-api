@@ -74,7 +74,7 @@
       "targets": [
         {
           "editorMode": "code",
-          "expr": "sum(http_request_size_bytes_count{handler!~\"metrics|healthcheck\"})",
+          "expr": "sum(rate(http_request_size_bytes_count{handler!~\"metrics|healthcheck\"}[5m]))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -894,46 +894,20 @@
     },
     {
       "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
+        "type": "jaeger",
+        "uid": "fee55s47a90cgb"
       },
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
           "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
             },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
+            "inspect": false
           },
           "mappings": [],
           "thresholds": {
@@ -948,10 +922,46 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "decbytes"
+          }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Start time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 177
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Trace name"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 215
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Trace ID"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 305
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 8,
@@ -959,107 +969,32 @@
         "x": 0,
         "y": 12
       },
-      "id": 26,
+      "id": 38,
       "options": {
-        "dataLinks": [],
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": ["sum"],
+          "show": false
         },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "multi",
-          "sort": "none"
-        }
+        "showHeader": true,
+        "sortBy": []
       },
       "pluginVersion": "11.5.2",
       "targets": [
         {
           "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
+            "type": "jaeger",
+            "uid": "fee55s47a90cgb"
           },
-          "expr": "go_memstats_mspan_inuse_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "go_memstats_mspan_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "go_memstats_mcache_inuse_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "go_memstats_mcache_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "D"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "go_memstats_buck_hash_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "E"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "go_memstats_gc_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "F"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "go_memstats_other_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"} - go_memstats_other_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "legendFormat": "bytes of memory are used for other runtime allocations {pod={{kubernetes_pod_name}}}",
-          "refId": "G"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "go_memstats_next_gc_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "H"
+          "queryType": "search",
+          "refId": "A",
+          "service": "book-store-api"
         }
       ],
-      "title": "Memory in Off-Heap",
-      "type": "timeseries"
+      "title": "Traces",
+      "type": "table"
     },
     {
       "datasource": {
@@ -1267,7 +1202,7 @@
         "x": 0,
         "y": 20
       },
-      "id": 24,
+      "id": 26,
       "options": {
         "dataLinks": [],
         "legend": {
@@ -1289,7 +1224,7 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "go_memstats_stack_inuse_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "expr": "go_memstats_mspan_inuse_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -1299,13 +1234,74 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "go_memstats_stack_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "expr": "go_memstats_mspan_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "go_memstats_mcache_inuse_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "go_memstats_mcache_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "D"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "go_memstats_buck_hash_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "E"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "go_memstats_gc_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "F"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "go_memstats_other_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"} - go_memstats_other_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "bytes of memory are used for other runtime allocations {pod={{kubernetes_pod_name}}}",
+          "refId": "G"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "go_memstats_next_gc_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "H"
         }
       ],
-      "title": "Memory in Stack",
+      "title": "Memory in Off-Heap",
       "type": "timeseries"
     },
     {
@@ -1455,8 +1451,211 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "id": 24,
+      "options": {
+        "dataLinks": [],
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "go_memstats_stack_inuse_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "go_memstats_stack_sys_bytes{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "B"
+        }
+      ],
+      "title": "Memory in Stack",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "id": 8,
+      "options": {
+        "dataLinks": [],
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.5.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "go_goroutines{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "refId": "A"
+        }
+      ],
+      "title": "Goroutines",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1472,7 +1671,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 28
+        "y": 36
       },
       "id": 22,
       "options": {
@@ -1553,8 +1752,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1562,7 +1760,7 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "ms"
         },
         "overrides": []
       },
@@ -1570,9 +1768,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 36
       },
-      "id": 8,
+      "id": 4,
       "options": {
         "dataLinks": [],
         "legend": {
@@ -1594,13 +1792,13 @@
             "type": "prometheus",
             "uid": "PBFA97CFB590B2093"
           },
-          "expr": "go_goroutines{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
+          "expr": "go_gc_duration_seconds{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
         }
       ],
-      "title": "Goroutines",
+      "title": "GC duration quantile",
       "type": "timeseries"
     },
     {
@@ -1651,8 +1849,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               },
               {
                 "color": "red",
@@ -1668,7 +1865,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 36
+        "y": 44
       },
       "id": 14,
       "options": {
@@ -1699,104 +1896,6 @@
         }
       ],
       "title": "Rates of Allocation",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 36
-      },
-      "id": 4,
-      "options": {
-        "dataLinks": [],
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "11.5.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "expr": "go_gc_duration_seconds{kubernetes_namespace=\"$namespace\", kubernetes_pod_name=~\"$pod\"}",
-          "format": "time_series",
-          "intervalFactor": 1,
-          "refId": "A"
-        }
-      ],
-      "title": "GC duration quantile",
       "type": "timeseries"
     }
   ],
@@ -1841,13 +1940,13 @@
     ]
   },
   "time": {
-    "from": "now-15m",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Book Store API Metrics",
   "uid": "CgCw8jKZz",
-  "version": 49,
+  "version": 53,
   "weekStart": ""
 }

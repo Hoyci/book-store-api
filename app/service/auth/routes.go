@@ -69,6 +69,11 @@ func (h *AuthHandler) HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = utils.CheckPassword(r.Context(), user.PasswordHash, requestPayload.Password)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", types.InternalServerErrorResponse{Error: "The email or password is incorrect"})
+	}
+
 	accessToken, err := utils.CreateJWT(user.ID, user.Username, user.Email, config.Envs.JWTSecret, 3600, h.UUIDGen)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err, "HandleUserLogin", types.InternalServerErrorResponse{Error: "An unexpected error occurred"})

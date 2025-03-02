@@ -12,6 +12,7 @@ type Config struct {
 	Environment            string
 	DatabaseURL            string
 	JWTSecret              string
+	TracerURL              string
 	JWTExpirationInSeconds int64
 }
 
@@ -21,9 +22,10 @@ func initConfig() Config {
 	godotenv.Load()
 
 	return Config{
-		Port:                   getEnv("PORT", "8080"),
+		Port:                   getEnv("PORT", "8182"),
 		Environment:            getEnv("ENV", "development"),
 		DatabaseURL:            getEnv("DATABASE_URL", "postgresql://user:password@localhost:5432/postgres?sslmode=disable"),
+		TracerURL:              getEnv("TRACER_URL", "localhost:4317"),
 		JWTSecret:              getEnv("SECRET_KEY", "ABRACADABARA"),
 		JWTExpirationInSeconds: getEnvAsInt("JWT_EXP", 3600*24*7),
 	}

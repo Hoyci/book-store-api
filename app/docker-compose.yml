@@ -55,6 +55,18 @@ services:
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
     depends_on:
       - prometheus
+      - jaeger
+    networks:
+      - app-network
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
     networks:
       - app-network
 

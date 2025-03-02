@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
 )
 
 type APIServer struct {
@@ -51,6 +52,7 @@ func (s *APIServer) SetupRouter(
 	)
 
 	router.Use(utils.LoggingMiddleware)
+	router.Use(otelmux.Middleware("book-store-api"))
 
 	subrouter := router.PathPrefix("/api/v1").Subrouter()
 
